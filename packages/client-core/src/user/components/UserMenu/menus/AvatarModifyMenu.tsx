@@ -1,3 +1,28 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -8,8 +33,7 @@ import ConfirmDialog from '@etherealengine/client-core/src/common/components/Con
 import InputFile from '@etherealengine/client-core/src/common/components/InputFile'
 import InputText from '@etherealengine/client-core/src/common/components/InputText'
 import Menu from '@etherealengine/client-core/src/common/components/Menu'
-import { isValidHttpUrl } from '@etherealengine/client-core/src/common/utils'
-import { getCanvasBlob } from '@etherealengine/client-core/src/common/utils'
+import { getCanvasBlob, isValidHttpUrl } from '@etherealengine/client-core/src/common/utils'
 import {
   AVATAR_FILE_ALLOWED_EXTENSIONS,
   MAX_AVATAR_FILE_SIZE,
@@ -20,8 +44,8 @@ import {
   THUMBNAIL_HEIGHT,
   THUMBNAIL_WIDTH
 } from '@etherealengine/common/src/constants/AvatarConstants'
-import { AvatarInterface } from '@etherealengine/common/src/interfaces/AvatarInterface'
 import { AssetLoader } from '@etherealengine/engine/src/assets/classes/AssetLoader'
+import { AvatarType } from '@etherealengine/engine/src/schemas/user/avatar.schema'
 import Box from '@etherealengine/ui/src/primitives/mui/Box'
 import CircularProgress from '@etherealengine/ui/src/primitives/mui/CircularProgress'
 import Grid from '@etherealengine/ui/src/primitives/mui/Grid'
@@ -34,7 +58,7 @@ import styles from '../index.module.scss'
 import { PopupMenuServices } from '../PopupMenuService'
 
 interface Props {
-  selectedAvatar?: AvatarInterface
+  selectedAvatar?: AvatarType
 }
 
 const defaultState = {

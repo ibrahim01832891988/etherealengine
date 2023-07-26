@@ -1,7 +1,32 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { Not } from 'bitecs'
 import { Consumer } from 'mediasoup-client/lib/Consumer'
 import { useEffect } from 'react'
-import { Group, Matrix4, Vector3 } from 'three'
+import { Group, Vector3 } from 'three'
 
 import { UserId } from '@etherealengine/common/src/interfaces/UserId'
 import multiLogger from '@etherealengine/common/src/logger'
@@ -13,8 +38,11 @@ import { Entity } from '@etherealengine/engine/src/ecs/classes/Entity'
 import { defineQuery, getComponent, hasComponent } from '@etherealengine/engine/src/ecs/functions/ComponentFunctions'
 import { removeEntity } from '@etherealengine/engine/src/ecs/functions/EntityFunctions'
 import { defineSystem } from '@etherealengine/engine/src/ecs/functions/SystemFunctions'
-import { NetworkObjectComponent } from '@etherealengine/engine/src/networking/components/NetworkObjectComponent'
-import { NetworkObjectOwnedTag } from '@etherealengine/engine/src/networking/components/NetworkObjectComponent'
+import { InputSourceComponent } from '@etherealengine/engine/src/input/components/InputSourceComponent'
+import {
+  NetworkObjectComponent,
+  NetworkObjectOwnedTag
+} from '@etherealengine/engine/src/networking/components/NetworkObjectComponent'
 import { MediaSettingsState } from '@etherealengine/engine/src/networking/MediaSettingsState'
 import { webcamVideoDataChannelType } from '@etherealengine/engine/src/networking/NetworkState'
 import { Physics, RaycastArgs } from '@etherealengine/engine/src/physics/classes/Physics'
@@ -29,8 +57,11 @@ import { XRUIComponent } from '@etherealengine/engine/src/xrui/components/XRUICo
 import { createTransitionState } from '@etherealengine/engine/src/xrui/functions/createTransitionState'
 import { getMutableState, getState, none } from '@etherealengine/hyperflux'
 
+import { CameraComponent } from '@etherealengine/engine/src/camera/components/CameraComponent'
+import { PhysicsState } from '@etherealengine/engine/src/physics/state/PhysicsState'
 import AvatarContextMenu from '../user/components/UserMenu/menus/AvatarContextMenu'
 import { PopupMenuState } from '../user/components/UserMenu/PopupMenuService'
+import { AvatarUIStateSystem } from './state/AvatarUIState'
 import { createAvatarDetailView } from './ui/AvatarDetailView'
 import { AvatarUIContextMenuState } from './ui/UserMenuView'
 
@@ -44,7 +75,7 @@ export const AvatarMenus = {
 }
 
 export const renderAvatarContextMenu = (userId: UserId, contextMenuEntity: Entity) => {
-  const userEntity = Engine.instance.getUserAvatarEntity(userId)
+  const userEntity = NetworkObjectComponent.getUserAvatarEntity(userId)
   if (!userEntity) return
 
   const contextMenuXRUI = getComponent(contextMenuEntity, XRUIComponent)
@@ -95,10 +126,11 @@ const raycastComponentData = {
 } as RaycastArgs
 
 const onSecondaryClick = () => {
+  const { physicsWorld } = getState(PhysicsState)
   const hits = Physics.castRayFromCamera(
-    Engine.instance.camera,
+    getComponent(Engine.instance.cameraEntity, CameraComponent),
     Engine.instance.pointerState.position,
-    Engine.instance.physicsWorld,
+    physicsWorld,
     raycastComponentData
   )
   const state = getMutableState(AvatarUIContextMenuState)
@@ -122,12 +154,17 @@ const execute = () => {
   const engineState = getState(EngineState)
   if (!engineState.isEngineInitialized) return
 
-  const keys = Engine.instance.buttons
+  const nonCapturedInputSource = InputSourceComponent.nonCapturedInputSourceQuery()[0]
+  if (!nonCapturedInputSource) return
+
+  const inputSource = getComponent(nonCapturedInputSource, InputSourceComponent)
+
+  const keys = inputSource.buttons
 
   if (keys.PrimaryClick?.down) onPrimaryClick()
   if (keys.SecondaryClick?.down) onSecondaryClick()
 
-  videoPreviewTimer += Engine.instance.deltaSeconds
+  videoPreviewTimer += engineState.deltaSeconds
   if (videoPreviewTimer > 1) videoPreviewTimer = 0
 
   for (const userEntity of userQuery.enter()) {
@@ -259,5 +296,6 @@ const reactor = () => {
 export const AvatarUISystem = defineSystem({
   uuid: 'ee.client.AvatarUISystem',
   execute,
-  reactor
+  reactor,
+  subSystems: [AvatarUIStateSystem]
 })

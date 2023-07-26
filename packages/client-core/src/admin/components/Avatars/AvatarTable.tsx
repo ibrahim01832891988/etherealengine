@@ -1,8 +1,33 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import ConfirmDialog from '@etherealengine/client-core/src/common/components/ConfirmDialog'
-import { AvatarInterface } from '@etherealengine/common/src/interfaces/AvatarInterface'
+import { AvatarType } from '@etherealengine/engine/src/schemas/user/avatar.schema'
 import { getMutableState, useHookstate } from '@etherealengine/hyperflux'
 import Box from '@etherealengine/ui/src/primitives/mui/Box'
 import Checkbox from '@etherealengine/ui/src/primitives/mui/Checkbox'
@@ -10,9 +35,7 @@ import Checkbox from '@etherealengine/ui/src/primitives/mui/Checkbox'
 import { AuthState } from '../../../user/services/AuthService'
 import TableComponent from '../../common/Table'
 import { AvatarColumn, avatarColumns, AvatarData } from '../../common/variables/avatar'
-import { AVATAR_PAGE_LIMIT } from '../../services/AvatarService'
-import { AdminAvatarState } from '../../services/AvatarService'
-import { AdminAvatarService } from '../../services/AvatarService'
+import { AdminAvatarService, AdminAvatarState, AVATAR_PAGE_LIMIT } from '../../services/AvatarService'
 import styles from '../../styles/admin.module.scss'
 import AvatarDrawer, { AvatarDrawerMode } from './AvatarDrawer'
 
@@ -38,7 +61,7 @@ const AvatarTable = ({ className, search, selectedAvatarIds, setSelectedAvatarId
   const fieldOrder = useHookstate('asc')
   const sortField = useHookstate('name')
   const openAvatarDrawer = useHookstate(false)
-  const avatarData = useHookstate<AvatarInterface | null>(null)
+  const avatarData = useHookstate<AvatarType | null>(null)
 
   const handlePageChange = (event: unknown, newPage: number) => {
     AdminAvatarService.fetchAdminAvatars(newPage, search, sortField.value, fieldOrder.value)
@@ -72,7 +95,7 @@ const AvatarTable = ({ className, search, selectedAvatarIds, setSelectedAvatarId
     }
   }
 
-  const createData = (el: AvatarInterface): AvatarData => {
+  const createData = (el: AvatarType): AvatarData => {
     return {
       el,
       select: (
@@ -90,12 +113,16 @@ const AvatarTable = ({ className, search, selectedAvatarIds, setSelectedAvatarId
       name: el.name as string,
       owner: el.userId,
       thumbnail: (
-        <img style={{ maxHeight: '50px' }} src={el.thumbnailResource?.url + '?' + new Date().getTime()} alt="" />
+        <img
+          style={{ maxHeight: '50px' }}
+          crossOrigin="anonymous"
+          src={el.thumbnailResource?.url + '?' + new Date().getTime()}
+          alt=""
+        />
       ),
       action: (
         <>
           <a
-            href="#"
             className={styles.actionStyle}
             onClick={() => {
               avatarData.set(el)
@@ -105,7 +132,6 @@ const AvatarTable = ({ className, search, selectedAvatarIds, setSelectedAvatarId
             <span className={styles.spanWhite}>{t('admin:components.common.view')}</span>
           </a>
           <a
-            href="#"
             className={styles.actionStyle}
             onClick={() => {
               avatarId.set(el.id)

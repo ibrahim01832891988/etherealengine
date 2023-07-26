@@ -1,27 +1,52 @@
-import { useEffect } from 'react'
-import { AmbientLight, Color, Quaternion, Vector3 } from 'three'
+/*
+CPAL-1.0 License
 
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
+import { useEffect } from 'react'
+import { AmbientLight, Vector3 } from 'three'
+
+import config from '@etherealengine/common/src/config'
 import { defineState, getMutableState, getState } from '@etherealengine/hyperflux'
 
 import { AssetLoader } from '../../assets/classes/AssetLoader'
 import { teleportAvatar } from '../../avatar/functions/moveAvatar'
+import { CameraComponent } from '../../camera/components/CameraComponent'
 import { ObjectDirection } from '../../common/constants/Axis3D'
 import { Engine } from '../../ecs/classes/Engine'
 import { EngineState } from '../../ecs/classes/EngineState'
-import { SceneState } from '../../ecs/classes/Scene'
 import {
   defineQuery,
   getComponent,
   getOptionalComponent,
-  removeComponent,
-  removeQuery
+  removeComponent
 } from '../../ecs/functions/ComponentFunctions'
 import { defineSystem } from '../../ecs/functions/SystemFunctions'
 import { TransformComponent } from '../../transform/components/TransformComponent'
 import { createTransitionState } from '../../xrui/functions/createTransitionState'
 import { PortalEffect } from '../classes/PortalEffect'
 import { HyperspaceTagComponent } from '../components/HyperspaceTagComponent'
-import { PortalEffects } from '../components/PortalComponent'
+import { PortalComponent, PortalEffects } from '../components/PortalComponent'
 import { SceneAssetPendingTagComponent } from '../components/SceneAssetPendingTagComponent'
 import { ObjectLayers } from '../constants/ObjectLayers'
 import { setObjectLayers } from '../functions/setObjectLayers'
@@ -36,7 +61,6 @@ let sceneVisible = true
 
 const hyperspaceEffect = new PortalEffect()
 hyperspaceEffect.scale.set(10, 10, 10)
-setObjectLayers(hyperspaceEffect, ObjectLayers.Portal)
 
 const light = new AmbientLight('#aaa')
 light.layers.enable(ObjectLayers.Portal)
@@ -62,14 +86,15 @@ const execute = () => {
 
   if (!playerTransform) return
   const cameraTransform = getComponent(Engine.instance.cameraEntity, TransformComponent)
+  const camera = getComponent(Engine.instance.cameraEntity, CameraComponent)
 
   // to trigger the hyperspace effect, add the hyperspace tag to the world entity
   for (const entity of hyperspaceTagComponent.enter()) {
     // TODO: add BPCEM of old and new scenes and fade them in and out too
     transition.setState('IN')
-    Engine.instance.camera.layers.enable(ObjectLayers.Portal)
+    camera.layers.enable(ObjectLayers.Portal)
 
-    Engine.instance.camera.zoom = 1.5
+    camera.zoom = 1.5
 
     Engine.instance.scene.add(light)
     Engine.instance.scene.add(hyperspaceEffect)
@@ -83,7 +108,7 @@ const execute = () => {
   for (const entity of hyperspaceTagComponent()) {
     if (sceneLoaded && transition.alpha >= 1 && transition.state === 'IN') {
       transition.setState('OUT')
-      Engine.instance.camera.layers.enable(ObjectLayers.Scene)
+      camera.layers.enable(ObjectLayers.Scene)
     }
 
     transition.update(engineState.deltaSeconds, (opacity) => {
@@ -94,8 +119,9 @@ const execute = () => {
         /**
          * hide scene, render just the hyperspace effect and avatar
          */
-        teleportAvatar(Engine.instance.localClientEntity, Engine.instance.activePortal!.remoteSpawnPosition, true)
-        Engine.instance.camera.layers.disable(ObjectLayers.Scene)
+        const activePortal = getComponent(Engine.instance.activePortalEntity, PortalComponent)
+        teleportAvatar(Engine.instance.localClientEntity, activePortal!.remoteSpawnPosition, true)
+        camera.layers.disable(ObjectLayers.Scene)
         sceneVisible = false
       }
 
@@ -104,16 +130,16 @@ const execute = () => {
         removeComponent(Engine.instance.localClientEntity, HyperspaceTagComponent)
         hyperspaceEffect.removeFromParent()
         light.removeFromParent()
-        Engine.instance.camera.layers.disable(ObjectLayers.Portal)
+        camera.layers.disable(ObjectLayers.Portal)
       }
     })
 
     hyperspaceEffect.position.copy(cameraTransform.position)
     hyperspaceEffect.updateMatrixWorld(true)
 
-    if (Engine.instance.camera.zoom > 0.75) {
-      Engine.instance.camera.zoom -= engineState.deltaSeconds
-      Engine.instance.camera.updateProjectionMatrix()
+    if (camera.zoom > 0.75) {
+      camera.zoom -= engineState.deltaSeconds
+      camera.updateProjectionMatrix()
     }
   }
 }
@@ -123,14 +149,17 @@ const reactor = () => {
     PortalEffects.set(HyperspacePortalEffect, HyperspaceTagComponent)
 
     const transition = createTransitionState(0.5, 'OUT')
+    setObjectLayers(hyperspaceEffect, ObjectLayers.Portal)
 
     getMutableState(HyperspacePortalSystemState).set({
       transition
     })
 
-    AssetLoader.loadAsync('/hdr/galaxyTexture.jpg').then((texture) => {
-      hyperspaceEffect.texture = texture
-    })
+    AssetLoader.loadAsync(`${config.client.fileServer}/projects/default-project/assets/galaxyTexture.jpg`).then(
+      (texture) => {
+        hyperspaceEffect.texture = texture
+      }
+    )
 
     return () => {
       PortalEffects.delete(HyperspacePortalEffect)

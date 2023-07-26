@@ -1,19 +1,41 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { useEffect } from 'react'
-import { Color, Texture } from 'three'
 
 import config from '@etherealengine/common/src/config'
-import { dispatchAction, getMutableState, getState, startReactor, useHookstate } from '@etherealengine/hyperflux'
+import { dispatchAction, getMutableState, getState, useHookstate } from '@etherealengine/hyperflux'
 
+import { CameraComponent } from '../../camera/components/CameraComponent'
 import { isMobile } from '../../common/functions/isMobile'
 import { Engine } from '../../ecs/classes/Engine'
-import { SceneState } from '../../ecs/classes/Scene'
-import { defineQuery, removeQuery, useQuery } from '../../ecs/functions/ComponentFunctions'
+import { defineQuery, getComponent, useQuery } from '../../ecs/functions/ComponentFunctions'
 import { defineSystem } from '../../ecs/functions/SystemFunctions'
-import { SkyboxComponent } from '../../scene/components/SkyboxComponent'
 import { PersistentAnchorComponent } from '../XRAnchorComponents'
 import { endXRSession, getReferenceSpaces, requestXRSession } from '../XRSessionFunctions'
 import { ReferenceSpace, XRAction, XRState } from '../XRState'
-import { XRSystem } from '../XRSystem'
 import { XR8Pipeline } from './XR8Pipeline'
 import { XR8Type } from './XR8Types'
 import { XRFrameProxy, XRRigidTransform, XRSessionProxy, XRSpace } from './XR8WebXRProxy'
@@ -166,15 +188,16 @@ let _8thwallScripts = null as XR8Assets | null
 
 let cameraCanvas: HTMLCanvasElement | null = null
 
-let originalRequestXRSessionImplementation = requestXRSession.implementation
-let originalEndXRSessionImplementation = endXRSession.implementation
+const originalRequestXRSessionImplementation = requestXRSession.implementation
+const originalEndXRSessionImplementation = endXRSession.implementation
 
 const inputSources = [] as XRInputSource[]
 const viewerInputSource = {
   handedness: 'none',
   targetRayMode: 'screen',
   get targetRaySpace() {
-    return new XRSpace(Engine.instance.camera.position, Engine.instance.camera.quaternion) as any
+    const camera = getComponent(Engine.instance.cameraEntity, CameraComponent)
+    return new XRSpace(camera.position, camera.quaternion) as any
   },
   gamepad: {
     axes: [0, 0],
@@ -256,7 +279,6 @@ const overrideXRSessionFunctions = () => {
     xrState.session.set(xrSession)
     xrState.sessionActive.set(true)
     xrState.sessionMode.set('immersive-ar')
-    getMutableState(SceneState).background.set(null)
 
     getReferenceSpaces(xrSession)
 
@@ -311,33 +333,23 @@ const revertXRSessionFunctions = () => {
  *     or exiting one that does to one that does not. This requires exiting the immersive
  *     session, changing the overrides, and entering the session again
  */
-let lastSeenBackground = null as Color | Texture | null
 
 const execute = () => {
   if (!XR8) return
 
-  const backgroundState = getState(SceneState).background
   const xrState = getState(XRState)
 
-  /**
-   * Update the background to be invisble if the AR session is active,
-   * as well as updating the camera transform from the 8thwall camera
-   */
+  /** Update the camera transform from the 8thwall camera */
   const sessionActive = xrState.sessionActive
   const xr8scene = XR8.Threejs.xrScene()
   if (sessionActive && xr8scene) {
-    if (backgroundState) lastSeenBackground = backgroundState
-    getMutableState(SceneState).background.set(null)
     const { camera } = xr8scene
+    const engineCamera = getComponent(Engine.instance.cameraEntity, CameraComponent)
     /** update the camera in world space as updateXRInput will update it to local space */
-    Engine.instance.camera.position.copy(camera.position)
-    Engine.instance.camera.quaternion.copy(camera.quaternion).normalize()
+    engineCamera.position.copy(camera.position)
+    engineCamera.quaternion.copy(camera.quaternion).normalize()
     /** 8thwall always expects the camera to be unscaled */
-    Engine.instance.camera.scale.set(1, 1, 1)
-  } else {
-    if (!backgroundState && lastSeenBackground) getMutableState(SceneState).background.set(lastSeenBackground)
-    lastSeenBackground = null
-    return
+    engineCamera.scale.set(1, 1, 1)
   }
 
   Engine.instance.xrFrame = new XRFrameProxy() as any as XRFrame

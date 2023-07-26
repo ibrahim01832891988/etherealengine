@@ -1,3 +1,28 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { useEffect } from 'react'
 import {
   BufferAttribute,
@@ -5,13 +30,15 @@ import {
   CompressedTexture,
   DoubleSide,
   InterleavedBufferAttribute,
+  LinearMipmapLinearFilter,
   Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
   SphereGeometry,
+  SRGBColorSpace,
+  Texture,
   Vector2
 } from 'three'
-import { LinearMipmapLinearFilter, sRGBEncoding, Texture } from 'three'
 
 import { EntityUUID } from '@etherealengine/common/src/interfaces/EntityUUID'
 import { StaticResourceInterface } from '@etherealengine/common/src/interfaces/StaticResourceInterface'
@@ -19,12 +46,7 @@ import { useHookstate } from '@etherealengine/hyperflux'
 
 import { AssetLoader } from '../../assets/classes/AssetLoader'
 import { AssetClass } from '../../assets/enum/AssetClass'
-import {
-  defineComponent,
-  hasComponent,
-  useComponent,
-  useOptionalComponent
-} from '../../ecs/functions/ComponentFunctions'
+import { defineComponent, useComponent } from '../../ecs/functions/ComponentFunctions'
 import { useEntityContext } from '../../ecs/functions/EntityFunctions'
 import { EngineRenderer } from '../../renderer/WebGLRendererSystem'
 import { ImageAlphaMode, ImageAlphaModeType, ImageProjection, ImageProjectionType } from '../classes/ImageUtils'
@@ -51,8 +73,7 @@ export const ImageComponent = defineComponent({
 
   onInit: (entity) => {
     return {
-      source: '',
-      resource: null as unknown as ImageResource,
+      source: '__$project$__/default-project/assets/sample_etc1s.ktx2',
       alphaMode: ImageAlphaMode.Opaque as ImageAlphaModeType,
       alphaCutoff: 0.5,
       projection: ImageProjection.Flat as ImageProjectionType,
@@ -65,7 +86,6 @@ export const ImageComponent = defineComponent({
   toJSON: (entity, component) => {
     return {
       source: component.source.value,
-      resource: component.resource.value,
       alphaMode: component.alphaMode.value,
       alphaCutoff: component.alphaCutoff.value,
       projection: component.projection.value,
@@ -76,12 +96,7 @@ export const ImageComponent = defineComponent({
   onSet: (entity, component, json) => {
     if (!json) return
     // backwards compatability
-    if (typeof json['imageSource'] === 'string' && json['imageSource'] !== component.source.value)
-      component.source.set(json['imageSource'])
-    if (typeof json.resource === 'object') {
-      const resource = json.resource ? (json.resource as ImageResource) : ({ source: json.source } as ImageResource)
-      component.resource.set(resource)
-    }
+    if (typeof json.source === 'string' && json.source !== component.source.value) component.source.set(json.source)
     if (typeof json.alphaMode === 'string' && json.alphaMode !== component.alphaMode.value)
       component.alphaMode.set(json.alphaMode)
     if (typeof json.alphaCutoff === 'number' && json.alphaCutoff !== component.alphaCutoff.value)
@@ -135,27 +150,19 @@ export function ImageReactor() {
   const entity = useEntityContext()
   const image = useComponent(entity, ImageComponent)
   const texture = useHookstate(null as Texture | null)
-  const imageValue = image.value
-  const source =
-    imageValue.resource?.jpegStaticResource?.url ||
-    imageValue.resource?.gifStaticResource?.url ||
-    imageValue.resource?.pngStaticResource?.url ||
-    imageValue.resource?.ktx2StaticResource?.url ||
-    imageValue.resource?.source ||
-    imageValue.source
 
   useEffect(
     function updateTextureSource() {
-      if (!source) {
+      if (!image.source.value) {
         return addError(entity, ImageComponent, `MISSING_TEXTURE_SOURCE`)
       }
 
-      const assetType = AssetLoader.getAssetClass(source)
+      const assetType = AssetLoader.getAssetClass(image.source.value)
       if (assetType !== AssetClass.Image) {
         return addError(entity, ImageComponent, `UNSUPPORTED_ASSET_CLASS`)
       }
 
-      AssetLoader.loadAsync(source)
+      AssetLoader.loadAsync(image.source.value)
         .then((_texture) => {
           texture.set(_texture)
         })
@@ -167,7 +174,7 @@ export function ImageReactor() {
         // TODO: abort load request, pending https://github.com/mrdoob/three.js/pull/23070
       }
     },
-    [image.resource]
+    [image.source]
   )
 
   useEffect(
@@ -177,7 +184,7 @@ export function ImageReactor() {
 
       clearErrors(entity, ImageComponent)
 
-      texture.value.encoding = sRGBEncoding
+      texture.value.colorSpace = SRGBColorSpace
       texture.value.minFilter = LinearMipmapLinearFilter
 
       image.mesh.material.map.ornull?.value.dispose()

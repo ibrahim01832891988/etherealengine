@@ -1,3 +1,28 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import appRootPath from 'app-root-path'
 import assert from 'assert'
 import path from 'path'
@@ -5,7 +30,10 @@ import path from 'path'
 import { Party } from '@etherealengine/common/src/interfaces/Party'
 import { UserInterface } from '@etherealengine/common/src/interfaces/User'
 import { destroyEngine } from '@etherealengine/engine/src/ecs/classes/Engine'
+import { avatarPath } from '@etherealengine/engine/src/schemas/user/avatar.schema'
 
+import { UserApiKeyType, userApiKeyPath } from '@etherealengine/engine/src/schemas/user/user-api-key.schema'
+import { Paginated } from '@feathersjs/feathers'
 import { Application } from '../../../declarations'
 import { createFeathersKoaApp } from '../../createApp'
 import { deleteFolderRecursive } from '../../util/fsHelperFunctions'
@@ -41,7 +69,7 @@ describe('party.test', () => {
     await app.setup()
     const avatarName = 'CyberbotGreen'
 
-    const avatar = await app.service('avatar').create({
+    const avatar = await app.service(avatarPath).create({
       name: avatarName
     })
 
@@ -65,26 +93,30 @@ describe('party.test', () => {
       avatarId: avatar.id,
       isGuest: false
     })) as UserInterface
-    user1.apiKey = await app.service('user-api-key').Model.findOne({
-      where: {
+    const user1ApiKeys = (await app.service(userApiKeyPath).find({
+      query: {
         userId: user1.id
       }
-    })
-    user2.apiKey = await app.service('user-api-key').Model.findOne({
-      where: {
+    })) as Paginated<UserApiKeyType>
+    user1.apiKey = user1ApiKeys.data.length > 0 ? user1ApiKeys.data[0] : user1.apiKey
+    const user2ApiKeys = (await app.service(userApiKeyPath).find({
+      query: {
         userId: user2.id
       }
-    })
-    user3.apiKey = await app.service('user-api-key').Model.findOne({
-      where: {
+    })) as Paginated<UserApiKeyType>
+    user2.apiKey = user2ApiKeys.data.length > 0 ? user2ApiKeys.data[0] : user2.apiKey
+    const user3ApiKeys = (await app.service(userApiKeyPath).find({
+      query: {
         userId: user3.id
       }
-    })
-    user4.apiKey = await app.service('user-api-key').Model.findOne({
-      where: {
+    })) as Paginated<UserApiKeyType>
+    user3.apiKey = user3ApiKeys.data.length > 0 ? user3ApiKeys.data[0] : user3.apiKey
+    const user4ApiKeys = (await app.service(userApiKeyPath).find({
+      query: {
         userId: user4.id
       }
-    })
+    })) as Paginated<UserApiKeyType>
+    user4.apiKey = user4ApiKeys.data.length > 0 ? user4ApiKeys.data[0] : user4.apiKey
     await app.service('scope').create({
       type: 'admin:admin',
       userId: user4.id

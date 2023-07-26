@@ -1,3 +1,28 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import appRootPath from 'app-root-path'
 import cli from 'cli'
 import { diff } from 'deep-object-diff'
@@ -18,6 +43,7 @@ import {
 import { EntityTreeComponent } from '@etherealengine/engine/src/ecs/functions/EntityTree'
 import { createEngine } from '@etherealengine/engine/src/initializeEngine'
 import { Physics } from '@etherealengine/engine/src/physics/classes/Physics'
+import { PhysicsState } from '@etherealengine/engine/src/physics/state/PhysicsState'
 import { FogSettingsComponent } from '@etherealengine/engine/src/scene/components/FogSettingsComponent'
 import { MediaSettingsComponent } from '@etherealengine/engine/src/scene/components/MediaSettingsComponent'
 import { PostProcessingComponent } from '@etherealengine/engine/src/scene/components/PostProcessingComponent'
@@ -29,12 +55,15 @@ import {
   updateSceneEntity
 } from '@etherealengine/engine/src/scene/systems/SceneLoadingSystem'
 import { getMutableState, getState } from '@etherealengine/hyperflux'
+import { loadEngineInjection } from '@etherealengine/projects/loadEngineInjection'
 
 require('fix-esm').register()
 
 /**
  * USAGE: `npx ts-node --swc scripts/resave-all-scenes.ts --write`
  */
+
+// @TODO - this does not support most of our projects, so should not be used for production
 
 createDOM()
 // import client systems so we know we have all components registered
@@ -79,7 +108,9 @@ const resaveAllProjects = async () => {
     cli.info(`Project: ${projectname}, Scene: ${sceneName}`)
 
     createEngine()
-    Engine.instance.physicsWorld = Physics.createWorld()
+    getMutableState(PhysicsState).physicsWorld.set(Physics.createWorld())
+    await loadEngineInjection(projects)
+
     getMutableState(EngineState).isEditor.set(true)
 
     // read scene file
@@ -120,10 +151,10 @@ const resaveAllProjects = async () => {
     // log each component diff
     const changes = JSON.parse(JSON.stringify(diff(sceneJson, newScene))) as SceneJson
     console.log('changes to', scene)
-
-    for (const entity of Object.values(changes.entities)) {
-      console.log(entity.components)
-    }
+    if (changes.entities)
+      for (const entity of Object.values(changes.entities)) {
+        console.log(...Object.values(entity.components).map((val) => JSON.stringify(val, null, 2)))
+      }
 
     // save file
     if (options.write) fs.writeFileSync(scene, JSON.stringify(newScene, null, 2))

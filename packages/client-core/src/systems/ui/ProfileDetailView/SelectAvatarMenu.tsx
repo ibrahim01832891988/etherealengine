@@ -1,11 +1,36 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { createState, useHookstate } from '@hookstate/core'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { AvatarInterface } from '@etherealengine/common/src/interfaces/AvatarInterface'
 import { AvatarEffectComponent } from '@etherealengine/engine/src/avatar/components/AvatarEffectComponent'
 import { Engine } from '@etherealengine/engine/src/ecs/classes/Engine'
 import { hasComponent } from '@etherealengine/engine/src/ecs/functions/ComponentFunctions'
+import { AvatarType } from '@etherealengine/engine/src/schemas/user/avatar.schema'
 import { createXRUI } from '@etherealengine/engine/src/xrui/functions/createXRUI'
 import { WidgetAppService } from '@etherealengine/engine/src/xrui/WidgetAppService'
 import { WidgetName } from '@etherealengine/engine/src/xrui/Widgets'
@@ -37,7 +62,7 @@ const SelectAvatarMenu = () => {
 
   const [page, setPage] = useState(0)
   const [imgPerPage, setImgPerPage] = useState(Math.min(getAvatarPerPage(), avatarState.total.value))
-  const [selectedAvatar, setSelectedAvatar] = useState<any>('')
+  const [selectedAvatar, setSelectedAvatar] = useState<AvatarType | undefined>(undefined)
 
   useEffect(() => {
     AvatarService.fetchAvatarList()
@@ -50,10 +75,9 @@ const SelectAvatarMenu = () => {
     }
   }, [avatarState.total])
 
-  const setAvatar = (avatarId: string, avatarURL: string, thumbnailURL: string) => {
+  const setAvatar = (avatarId: string) => {
     if (hasComponent(Engine.instance.localClientEntity, AvatarEffectComponent)) return
-    if (authState.user?.value)
-      AvatarService.updateUserAvatarId(authState.user.id.value!, avatarId, avatarURL, thumbnailURL)
+    if (authState.user?.value) AvatarService.updateUserAvatarId(authState.user.id.value!, avatarId)
   }
 
   const loadNextAvatars = () => {
@@ -69,18 +93,14 @@ const SelectAvatarMenu = () => {
   }
 
   const confirmAvatar = () => {
-    if (selectedAvatar && avatarId != selectedAvatar?.avatar?.name) {
-      setAvatar(
-        selectedAvatar?.id || '',
-        selectedAvatar?.modelResource?.url || '',
-        selectedAvatar?.thumbnailResource?.url || ''
-      )
+    if (selectedAvatar && avatarId != selectedAvatar?.name) {
+      setAvatar(selectedAvatar?.id || '')
       WidgetAppService.setWidgetVisibility(WidgetName.PROFILE, false)
     }
-    setSelectedAvatar('')
+    setSelectedAvatar(undefined)
   }
 
-  const selectAvatar = (avatarResources: AvatarInterface) => {
+  const selectAvatar = (avatarResources: AvatarType) => {
     setSelectedAvatar(avatarResources)
   }
 
@@ -105,7 +125,7 @@ const SelectAvatarMenu = () => {
           key={avatar.id}
           xr-layer="true"
           onClick={() => selectAvatar(avatar)}
-          className={`paperAvatar ${avatar.name == selectedAvatar?.avatar?.name ? 'selectedAvatar' : ''}
+          className={`paperAvatar ${avatar.name == selectedAvatar?.name ? 'selectedAvatar' : ''}
               ${avatar.name == avatarId ? 'activeAvatar' : ''}`}
           style={{
             pointerEvents: avatar.name == avatarId ? 'none' : 'auto',
@@ -155,7 +175,7 @@ const SelectAvatarMenu = () => {
               xr-layer="true"
               backgroundColor="#f87678"
               onClick={() => {
-                setSelectedAvatar('')
+                setSelectedAvatar(undefined)
               }}
               disabled={!selectedAvatar}
               content={<span style={{ fontSize: '15px', fontWeight: 'bold' }}>X</span>}
@@ -164,7 +184,7 @@ const SelectAvatarMenu = () => {
               xr-layer="true"
               backgroundColor="#23af3a"
               onClick={confirmAvatar}
-              disabled={selectedAvatar?.avatar?.name == avatarId}
+              disabled={selectedAvatar?.name == avatarId}
               content={<Icon type="Check" />}
             />
             <XRIconButton

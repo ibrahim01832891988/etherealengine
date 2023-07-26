@@ -1,23 +1,42 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { Not } from 'bitecs'
 import { useEffect } from 'react'
 import { Camera, Frustum, Matrix4, Mesh, Skeleton, SkinnedMesh, Vector3 } from 'three'
 
 import { insertionSort } from '@etherealengine/common/src/utils/insertionSort'
-import { defineActionQueue, getMutableState, getState, none, removeActionQueue } from '@etherealengine/hyperflux'
+import { defineActionQueue, getMutableState, getState, none } from '@etherealengine/hyperflux'
 
+import { CameraComponent } from '../../camera/components/CameraComponent'
 import { V_000 } from '../../common/constants/MathConstants'
 import { Engine } from '../../ecs/classes/Engine'
 import { EngineActions, EngineState } from '../../ecs/classes/EngineState'
 import { Entity } from '../../ecs/classes/Entity'
-import {
-  defineQuery,
-  getComponent,
-  getOptionalComponent,
-  hasComponent,
-  removeQuery
-} from '../../ecs/functions/ComponentFunctions'
+import { defineQuery, getComponent, getOptionalComponent, hasComponent } from '../../ecs/functions/ComponentFunctions'
 import { defineSystem } from '../../ecs/functions/SystemFunctions'
-import { LocalAvatarTagComponent } from '../../input/components/LocalAvatarTagComponent'
 import { BoundingBoxComponent, BoundingBoxDynamicTag } from '../../interaction/components/BoundingBoxComponents'
 import { NetworkState } from '../../networking/NetworkState'
 import {
@@ -28,6 +47,7 @@ import {
   RigidBodyKinematicVelocityBasedTagComponent
 } from '../../physics/components/RigidBodyComponent'
 import { GroupComponent } from '../../scene/components/GroupComponent'
+import { TransformSerialization } from '../TransformSerialization'
 import { ComputedTransformComponent } from '../components/ComputedTransformComponent'
 import {
   DistanceFromCameraComponent,
@@ -35,7 +55,6 @@ import {
   FrustumCullCameraComponent
 } from '../components/DistanceComponents'
 import { LocalTransformComponent, TransformComponent } from '../components/TransformComponent'
-import { TransformSerialization } from '../TransformSerialization'
 
 const transformQuery = defineQuery([TransformComponent])
 const nonDynamicLocalTransformQuery = defineQuery([
@@ -322,7 +341,7 @@ const execute = () => {
   for (const entity of dirtyGroupEntities) updateGroupChildren(entity)
 
   if (!xrFrame) {
-    const camera = Engine.instance.camera
+    const camera = getComponent(Engine.instance.cameraEntity, CameraComponent)
     const viewCamera = camera.cameras[0]
     viewCamera.matrixWorld.copy(camera.matrixWorld)
     viewCamera.matrixWorldInverse.copy(camera.matrixWorldInverse)
@@ -348,11 +367,12 @@ const execute = () => {
   }
 
   const cameraPosition = getComponent(Engine.instance.cameraEntity, TransformComponent).position
+  const camera = getComponent(Engine.instance.cameraEntity, CameraComponent)
   for (const entity of distanceFromCameraQuery())
     DistanceFromCameraComponent.squaredDistance[entity] = getDistanceSquaredFromTarget(entity, cameraPosition)
 
   /** @todo expose the frustum in WebGLRenderer to not calculate this twice  */
-  _projScreenMatrix.multiplyMatrices(Engine.instance.camera.projectionMatrix, Engine.instance.camera.matrixWorldInverse)
+  _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
   _frustum.setFromProjectionMatrix(_projScreenMatrix)
 
   for (const entity of frustumCulledQuery())

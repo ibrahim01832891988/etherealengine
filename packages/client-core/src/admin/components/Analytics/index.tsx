@@ -1,16 +1,40 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import clsx from 'clsx'
 import moment from 'moment'
 import React, { useEffect } from 'react'
 
 import { getMutableState, useHookstate } from '@etherealengine/hyperflux'
 import Box from '@etherealengine/ui/src/primitives/mui/Box'
-import TextField from '@etherealengine/ui/src/primitives/mui/TextField'
 import ToggleButton from '@etherealengine/ui/src/primitives/mui/ToggleButton'
 import ToggleButtonGroup from '@etherealengine/ui/src/primitives/mui/ToggleButtonGroup'
 
-import DateAdapter from '@mui/lab/AdapterMoment'
-import LocalizationProvider from '@mui/lab/LocalizationProvider'
-import MobileDateTimePicker from '@mui/lab/MobileDateTimePicker'
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { MobileDateTimePicker } from '@mui/x-date-pickers/MobileDateTimePicker'
 
 import { AuthState } from '../../../user/services/AuthService'
 import { AdminAnalyticsService, AdminAnalyticsState } from '../../services/AnalyticsService'
@@ -136,28 +160,30 @@ const Analytics = () => {
           </ToggleButtonGroup>
           <div className={styles.datePickerContainer}>
             {/* @ts-ignore */}
-            <LocalizationProvider dateAdapter={DateAdapter}>
+            <LocalizationProvider dateAdapter={AdapterMoment}>
               <MobileDateTimePicker
                 value={startDate.value}
-                DialogProps={{
-                  PaperProps: {
-                    className: styles.dateTimePickerDialog
+                slotProps={{
+                  dialog: {
+                    PaperProps: {
+                      className: styles.dateTimePickerDialog
+                    }
                   }
                 }}
                 onChange={(value) => onDateRangeStartChange(value)}
-                renderInput={(params) => <TextField {...params} />}
               />
               <Box sx={{ mx: 2 }}> to </Box>
               <MobileDateTimePicker
                 value={endDate.value}
-                DialogProps={{
-                  PaperProps: {
-                    className: styles.dateTimePickerDialog
+                slotProps={{
+                  dialog: {
+                    PaperProps: {
+                      className: styles.dateTimePickerDialog
+                    }
                   }
                 }}
                 minDateTime={minEndDate}
                 onChange={(value) => onDateRangeEndChange(value)}
-                renderInput={(params) => <TextField {...params} />}
               />
             </LocalizationProvider>
           </div>

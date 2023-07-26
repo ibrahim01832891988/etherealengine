@@ -1,15 +1,36 @@
-import { cloneDeep } from 'lodash'
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
+import { cloneDeep, startCase } from 'lodash'
 import { useEffect } from 'react'
-import React from 'react'
 import { MathUtils } from 'three'
 
 import { EntityUUID } from '@etherealengine/common/src/interfaces/EntityUUID'
 import { ComponentJson, EntityJson, SceneData, SceneJson } from '@etherealengine/common/src/interfaces/SceneInterface'
 import logger from '@etherealengine/common/src/logger'
-import {
-  LocalTransformComponent,
-  setLocalTransformComponent
-} from '@etherealengine/engine/src/transform/components/TransformComponent'
+import { setLocalTransformComponent } from '@etherealengine/engine/src/transform/components/TransformComponent'
 import {
   addActionReceptor,
   dispatchAction,
@@ -18,7 +39,7 @@ import {
   removeActionReceptor,
   useHookstate
 } from '@etherealengine/hyperflux'
-import { getSystemsFromSceneData, SystemImportType } from '@etherealengine/projects/loadSystemInjection'
+import { SystemImportType, getSystemsFromSceneData } from '@etherealengine/projects/loadSystemInjection'
 
 import {
   AppLoadingAction,
@@ -32,7 +53,7 @@ import { Entity } from '../../ecs/classes/Entity'
 import { SceneState } from '../../ecs/classes/Scene'
 import {
   ComponentJSONIDMap,
-  ComponentType,
+  ComponentMap,
   defineQuery,
   getAllComponents,
   getComponent,
@@ -44,13 +65,12 @@ import {
 } from '../../ecs/functions/ComponentFunctions'
 import { createEntity } from '../../ecs/functions/EntityFunctions'
 import {
-  addEntityNodeChild,
   EntityTreeComponent,
+  addEntityNodeChild,
   getAllEntitiesInTree,
-  removeEntityNode,
   removeEntityNodeRecursively
 } from '../../ecs/functions/EntityTree'
-import { defineSystem, disableSystems, startSystem, SystemDefinitions } from '../../ecs/functions/SystemFunctions'
+import { SystemDefinitions, defineSystem, disableSystems, startSystem } from '../../ecs/functions/SystemFunctions'
 import { TransformComponent } from '../../transform/components/TransformComponent'
 import { FogSettingsComponent } from '../components/FogSettingsComponent'
 import { GLTFLoadedComponent } from '../components/GLTFLoadedComponent'
@@ -66,23 +86,19 @@ import { UUIDComponent } from '../components/UUIDComponent'
 import { VisibleComponent } from '../components/VisibleComponent'
 import { getUniqueName } from '../functions/getUniqueName'
 
-const toCapitalCase = (str: string) =>
-  str
-    .split(' ')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-
-export const createNewEditorNode = (entityNode: Entity, prefabType: string): void => {
-  const components = Engine.instance.scenePrefabRegistry.get(prefabType)
-  if (!components) return console.warn(`[createNewEditorNode]: ${prefabType} is not a prefab`)
-
-  const name = getUniqueName(entityNode, `New ${toCapitalCase(prefabType)}`)
+export const createNewEditorNode = (entityNode: Entity, componentName: string): void => {
+  const components = [
+    { name: ComponentMap.get(componentName)!.jsonID! },
+    { name: ComponentMap.get(VisibleComponent.name)!.jsonID! },
+    { name: ComponentMap.get(TransformComponent.name)!.jsonID! }
+  ]
+  const name = getUniqueName(entityNode, `New ${startCase(components[0].name.toLowerCase())}`)
 
   addEntityNodeChild(entityNode, getState(SceneState).sceneEntity)
   // Clone the defualt values so that it will not be bound to newly created node
   deserializeSceneEntity(entityNode, {
     name,
-    type: prefabType.toLowerCase().replace(/\s/, '_'),
+    type: componentName.toLowerCase().replace(/\s/, '_'),
     components: cloneDeep(components)
   })
 }
@@ -215,10 +231,10 @@ export const updateSceneEntitiesFromJSON = (parent: string) => {
 /** 2. remove old scene entities - GLTF loaded entities will be handled by their parents if removed */
 export const removeSceneEntitiesFromOldJSON = () => {
   const sceneState = getState(SceneState)
-  const sceneData = sceneState.sceneData as SceneData
+  const sceneData = sceneState.sceneData
   const oldLoadedEntityNodesToRemove = getAllEntitiesInTree(sceneState.sceneEntity).filter(
     (entity) =>
-      !sceneData.scene.entities[getComponent(entity, UUIDComponent)] &&
+      !sceneData?.scene.entities[getComponent(entity, UUIDComponent)] &&
       !getOptionalComponent(entity, GLTFLoadedComponent)?.includes('entity')
   )
   /** @todo this will not  */
@@ -238,7 +254,7 @@ export const updateSceneFromJSON = async () => {
   if (getState(AppLoadingState).state !== AppLoadingStates.SUCCESS)
     dispatchAction(AppLoadingAction.setLoadingState({ state: AppLoadingStates.SCENE_LOADING }))
 
-  const sceneData = getState(SceneState).sceneData as SceneData
+  const sceneData = getState(SceneState).sceneData
 
   getMutableState(EngineState).merge({
     sceneLoading: true,
@@ -247,7 +263,7 @@ export const updateSceneFromJSON = async () => {
 
   const systemsToLoad = [] as SystemImportType[]
 
-  if (!getState(EngineState).isEditor) {
+  if (!getState(EngineState).isEditor && sceneData) {
     /** get systems that have changed */
     const sceneSystems = await getSystemsFromSceneData(sceneData.project, sceneData.scene)
     systemsToLoad.push(
@@ -267,6 +283,14 @@ export const updateSceneFromJSON = async () => {
   }
 
   removeSceneEntitiesFromOldJSON()
+
+  if (!sceneData) {
+    getMutableState(EngineState).merge({
+      sceneLoading: false,
+      sceneLoaded: false
+    })
+    return
+  }
 
   /** 3. load new systems */
   if (!getState(EngineState).isEditor) {
@@ -301,7 +325,13 @@ export const updateSceneFromJSON = async () => {
   }
 
   if (!sceneAssetPendingTagQuery().length) {
-    if (getState(EngineState).sceneLoading) dispatchAction(EngineActions.sceneLoaded({}))
+    if (getState(EngineState).sceneLoading) {
+      getMutableState(EngineState).merge({
+        sceneLoading: false,
+        sceneLoaded: true
+      })
+      dispatchAction(EngineActions.sceneLoaded({}))
+    }
   }
 }
 
@@ -393,13 +423,17 @@ const reactor = () => {
 
     if (!sceneAssetPendingTagQuery.length && !getState(EngineState).sceneLoaded) {
       for (const entity of sceneAssetPendingTagQuery) removeComponent(entity, SceneAssetPendingTagComponent)
+      getMutableState(EngineState).merge({
+        sceneLoading: false,
+        sceneLoaded: true
+      })
       dispatchAction(EngineActions.sceneLoaded({}))
       SceneAssetPendingTagComponent.loadingProgress.set({})
     }
   }, [sceneAssetPendingTagQuery, assetLoadingState])
 
   useEffect(() => {
-    if (sceneData.value && isEngineInitialized.value) updateSceneFromJSON()
+    if (isEngineInitialized.value) updateSceneFromJSON()
   }, [sceneData, isEngineInitialized])
 
   useEffect(() => {

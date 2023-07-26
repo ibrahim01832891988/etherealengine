@@ -1,3 +1,28 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { POSE_LANDMARKS } from '@mediapipe/holistic'
 import { decode, encode } from 'msgpackr'
 import { useEffect } from 'react'
@@ -15,11 +40,12 @@ import { EngineState } from '../ecs/classes/EngineState'
 import { getComponent } from '../ecs/functions/ComponentFunctions'
 import { removeEntity } from '../ecs/functions/EntityFunctions'
 import { defineSystem } from '../ecs/functions/SystemFunctions'
-import { DataChannelType, Network } from '../networking/classes/Network'
 import { addDataChannelHandler, removeDataChannelHandler } from '../networking/NetworkState'
+import { DataChannelType, Network } from '../networking/classes/Network'
+import { NetworkObjectComponent } from '../networking/components/NetworkObjectComponent'
 import { UUIDComponent } from '../scene/components/UUIDComponent'
 import { TransformComponent } from '../transform/components/TransformComponent'
-import { XRAction, XRState } from '../xr/XRState'
+import { XRAction } from '../xr/XRState'
 
 export const motionCaptureHeadSuffix = '_motion_capture_head'
 export const motionCaptureLeftHandSuffix = '_motion_capture_left_hand'
@@ -124,7 +150,7 @@ const execute = () => {
 
   for (const [peerID, mocapData] of timeSeriesMocapData) {
     const userID = network.peers.get(peerID)!.userId
-    const entity = Engine.instance.getUserAvatarEntity(userID)
+    const entity = NetworkObjectComponent.getUserAvatarEntity(userID)
 
     if (entity && entity === localClientEntity) {
       const data = mocapData.popLast()
@@ -160,11 +186,11 @@ const execute = () => {
       if (!leftHand && ikTargetLeftHand) removeEntity(ikTargetLeftHand)
       if (!rightHand && ikTargetRightHand) removeEntity(ikTargetRightHand)
 
-      if (head && !ikTargetHead) dispatchAction(XRAction.spawnIKTarget({ handedness: 'none', uuid: headUUID }))
+      if (head && !ikTargetHead) dispatchAction(XRAction.spawnIKTarget({ handedness: 'none', entityUUID: headUUID }))
       if (leftHand && !ikTargetLeftHand)
-        dispatchAction(XRAction.spawnIKTarget({ handedness: 'left', uuid: leftHandUUID }))
+        dispatchAction(XRAction.spawnIKTarget({ handedness: 'left', entityUUID: leftHandUUID }))
       if (rightHand && !ikTargetRightHand)
-        dispatchAction(XRAction.spawnIKTarget({ handedness: 'right', uuid: rightHandUUID }))
+        dispatchAction(XRAction.spawnIKTarget({ handedness: 'right', entityUUID: rightHandUUID }))
 
       const avatarRig = getComponent(entity, AvatarRigComponent)
       const avatarTransform = getComponent(entity, TransformComponent)

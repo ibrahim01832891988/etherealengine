@@ -1,8 +1,33 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { TypedArray } from 'bitecs'
 
 import { NetworkId } from '@etherealengine/common/src/interfaces/NetworkId'
 import { UserId } from '@etherealengine/common/src/interfaces/UserId'
-import { defineState, getMutableState, getState } from '@etherealengine/hyperflux'
+import { getState } from '@etherealengine/hyperflux'
 
 import { AvatarComponent } from '../../avatar/components/AvatarComponent'
 import { Engine } from '../../ecs/classes/Engine'
@@ -11,25 +36,27 @@ import { hasComponent } from '../../ecs/functions/ComponentFunctions'
 // import { XRHandsInputComponent } from '../../xr/XRComponents'
 // import { XRHandBones } from '../../xr/XRHandBones'
 import { Network } from '../classes/Network'
-import { NetworkObjectAuthorityTag } from '../components/NetworkObjectComponent'
+import { NetworkObjectAuthorityTag, NetworkObjectComponent } from '../components/NetworkObjectComponent'
 import { NetworkState } from '../NetworkState'
 import {
   expand,
+  flatten,
   QUAT_MAX_RANGE,
   QUAT_PRECISION_MULT,
   SerializationSchema,
   VEC3_MAX_RANGE,
-  VEC3_PRECISION_MULT
+  VEC3_PRECISION_MULT,
+  Vector3SoA,
+  Vector4SoA
 } from './Utils'
-import { flatten, Vector3SoA, Vector4SoA } from './Utils'
 import {
   createViewCursor,
   readFloat64,
   readProp,
-  readUint8,
   readUint16,
   readUint32,
   readUint64,
+  readUint8,
   ViewCursor
 } from './ViewCursor'
 
@@ -179,11 +206,19 @@ export const readCompressedRotation = (vector4: Vector4SoA) => (v: ViewCursor, e
   }
 }
 
-export const readEntity = (v: ViewCursor, fromUserId: UserId, serializationSchema: SerializationSchema[]) => {
+export const readEntity = (
+  v: ViewCursor,
+  network: Network,
+  fromUserId: UserId,
+  serializationSchema: SerializationSchema[]
+) => {
   const netId = readUint32(v) as NetworkId
+  const ownerIndex = readUint32(v) as NetworkId
   const changeMask = readUint8(v)
 
-  let entity = Engine.instance.getNetworkObject(fromUserId, netId)
+  const ownerId = network.userIndexToUserID.get(ownerIndex)!
+
+  let entity = NetworkObjectComponent.getNetworkObject(ownerId, netId)
   if (entity && hasComponent(entity, NetworkObjectAuthorityTag)) entity = UndefinedEntity
 
   let b = 0
@@ -193,12 +228,12 @@ export const readEntity = (v: ViewCursor, fromUserId: UserId, serializationSchem
   }
 }
 
-export const readEntities = (v: ViewCursor, byteLength: number, fromUserID: UserId) => {
+export const readEntities = (v: ViewCursor, network: Network, byteLength: number, fromUserID: UserId) => {
   const entitySchema = Object.values(getState(NetworkState).networkSchema)
   while (v.cursor < byteLength) {
     const count = readUint32(v)
     for (let i = 0; i < count; i++) {
-      readEntity(v, fromUserID, entitySchema)
+      readEntity(v, network, fromUserID, entitySchema)
     }
   }
 }
@@ -221,7 +256,7 @@ export const readDataPacket = (network: Network, packet: ArrayBuffer) => {
   network.jitterBufferTaskList.push({
     simulationTime,
     read: () => {
-      readEntities(view, packet.byteLength, fromUserID)
+      readEntities(view, network, packet.byteLength, fromUserID)
     }
   })
 }

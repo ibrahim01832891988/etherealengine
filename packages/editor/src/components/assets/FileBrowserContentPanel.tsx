@@ -1,7 +1,35 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { Downgraded } from '@hookstate/core'
 import React, { useEffect, useRef } from 'react'
+import { useDrop } from 'react-dnd'
 import { useTranslation } from 'react-i18next'
+import { saveAs } from 'save-as'
 
+import { API } from '@etherealengine/client-core/src/API'
 import ConfirmDialog from '@etherealengine/client-core/src/common/components/ConfirmDialog'
 import LoadingView from '@etherealengine/client-core/src/common/components/LoadingView'
 import {
@@ -10,21 +38,30 @@ import {
   FileBrowserState,
   FILES_PAGE_LIMIT
 } from '@etherealengine/client-core/src/common/services/FileBrowserService'
+import { NotificationService } from '@etherealengine/client-core/src/common/services/NotificationService'
 import { uploadToFeathersService } from '@etherealengine/client-core/src/util/upload'
+import config from '@etherealengine/common/src/config'
 import { processFileName } from '@etherealengine/common/src/utils/processFileName'
-import { KTX2EncodeArguments } from '@etherealengine/engine/src/assets/constants/CompressionParms'
-import { KTX2EncodeDefaultArguments } from '@etherealengine/engine/src/assets/constants/CompressionParms'
+import { DndWrapper } from '@etherealengine/editor/src/components/dnd/DndWrapper'
 import {
   ImageConvertDefaultParms,
   ImageConvertParms
 } from '@etherealengine/engine/src/assets/constants/ImageConvertParms'
-import { MediaPrefabs } from '@etherealengine/engine/src/audio/systems/MediaSystem'
-import { ScenePrefabs } from '@etherealengine/engine/src/scene/systems/SceneObjectUpdateSystem'
-import { getMutableState, useHookstate, useState } from '@etherealengine/hyperflux'
-import { addActionReceptor, removeActionReceptor } from '@etherealengine/hyperflux'
+import {
+  addActionReceptor,
+  getMutableState,
+  removeActionReceptor,
+  useHookstate,
+  useState
+} from '@etherealengine/hyperflux'
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
+import DownloadIcon from '@mui/icons-material/Download'
+import PhotoSizeSelectActualIcon from '@mui/icons-material/PhotoSizeSelectActual'
+import VideocamIcon from '@mui/icons-material/Videocam'
+import ViewInArIcon from '@mui/icons-material/ViewInAr'
+import VolumeUpIcon from '@mui/icons-material/VolumeUp'
 import Breadcrumbs from '@mui/material/Breadcrumbs'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
@@ -35,7 +72,7 @@ import { PopoverPosition } from '@mui/material/Popover'
 import TablePagination from '@mui/material/TablePagination'
 import Typography from '@mui/material/Typography'
 
-import { prefabIcons } from '../../functions/PrefabEditors'
+import { SupportedFileTypes } from '../../constants/AssetTypes'
 import { unique } from '../../functions/utils'
 import { ContextMenu } from '../layout/ContextMenu'
 import { ToolButton } from '../toolbar/ToolButton'
@@ -45,32 +82,32 @@ import { FileDataType } from './FileDataType'
 import ImageConvertPanel from './ImageConvertPanel'
 import styles from './styles.module.scss'
 
-export const PrefabFileType = {
-  gltf: ScenePrefabs.model,
-  'gltf-binary': ScenePrefabs.model,
-  glb: ScenePrefabs.model,
-  usdz: ScenePrefabs.model,
-  fbx: ScenePrefabs.model,
-  png: ScenePrefabs.image,
-  jpeg: ScenePrefabs.image,
-  jpg: ScenePrefabs.image,
-  m3u8: MediaPrefabs.video,
-  mp4: MediaPrefabs.video,
-  mpeg: MediaPrefabs.audio,
-  mp3: MediaPrefabs.audio,
-  'model/gltf-binary': ScenePrefabs.model,
-  'model/gltf': ScenePrefabs.model,
-  'model/glb': ScenePrefabs.model,
-  'model/usdz': ScenePrefabs.model,
-  'model/fbx': ScenePrefabs.model,
-  'image/png': ScenePrefabs.image,
-  'image/jpeg': ScenePrefabs.image,
-  'image/jpg': ScenePrefabs.image,
+export const FileIconType = {
+  gltf: ViewInArIcon,
+  'gltf-binary': ViewInArIcon,
+  glb: ViewInArIcon,
+  usdz: ViewInArIcon,
+  fbx: ViewInArIcon,
+  png: PhotoSizeSelectActualIcon,
+  jpeg: PhotoSizeSelectActualIcon,
+  jpg: PhotoSizeSelectActualIcon,
+  m3u8: VideocamIcon,
+  mp4: VideocamIcon,
+  mpeg: VolumeUpIcon,
+  mp3: VolumeUpIcon,
+  'model/gltf-binary': ViewInArIcon,
+  'model/gltf': ViewInArIcon,
+  'model/glb': ViewInArIcon,
+  'model/usdz': ViewInArIcon,
+  'model/fbx': ViewInArIcon,
+  'image/png': PhotoSizeSelectActualIcon,
+  'image/jpeg': PhotoSizeSelectActualIcon,
+  'image/jpg': PhotoSizeSelectActualIcon,
   'application/pdf': null,
-  'application/vnd.apple.mpegurl': MediaPrefabs.video,
-  'video/mp4': MediaPrefabs.video,
-  'audio/mpeg': MediaPrefabs.audio,
-  'audio/mp3': MediaPrefabs.audio
+  'application/vnd.apple.mpegurl': VideocamIcon,
+  'video/mp4': VideocamIcon,
+  'audio/mpeg': VolumeUpIcon,
+  'audio/mp3': VolumeUpIcon
 }
 
 type FileBrowserContentPanelProps = {
@@ -92,7 +129,6 @@ export type FileType = {
   key: string
   name: string
   path: string
-  prefabType: string
   size: string
   type: string
   url: string
@@ -122,12 +158,62 @@ const FileBrowserContentPanel: React.FC<FileBrowserContentPanelProps> = (props) 
   const openProperties = useState(false)
   const openCompress = useState(false)
   const openConvert = useState(false)
-  const compressProperties = useState<KTX2EncodeArguments>(KTX2EncodeDefaultArguments)
   const convertProperties = useState<ImageConvertParms>(ImageConvertDefaultParms)
   const openConfirm = useState(false)
   const contentToDeletePath = useState('')
   const contentToDeleteType = useState('')
 
+  const DropArea = () => {
+    const [{ isFileDropOver }, fileDropRef] = useDrop({
+      accept: [...SupportedFileTypes],
+      drop: (dropItem) => dropItemsOnPanel(dropItem as any),
+      collect: (monitor) => ({ isFileDropOver: monitor.isOver() })
+    })
+
+    return (
+      <div
+        ref={fileDropRef}
+        onContextMenu={handleContextMenu}
+        id="file-browser-panel"
+        className={styles.panelContainer}
+        style={{ border: isFileDropOver ? '3px solid #ccc' : '' }}
+      >
+        <div className={styles.contentContainer}>
+          {unique(files, (file) => file.key).map((file, i) => (
+            <FileBrowserItem
+              key={file.key}
+              contextMenuId={i.toString()}
+              item={file}
+              disableDnD={props.disableDnD}
+              onClick={onSelect}
+              moveContent={moveContent}
+              deleteContent={handleConfirmDelete}
+              currentContent={currentContentRef}
+              setOpenPropertiesModal={openProperties.set}
+              setFileProperties={fileProperties.set}
+              setOpenCompress={openCompress.set}
+              setOpenConvert={openConvert.set}
+              dropItemsOnPanel={dropItemsOnPanel}
+              isFilesLoading={isLoading}
+              refreshDirectory={onRefreshDirectory}
+            />
+          ))}
+
+          {total > 0 && fileState.files.value.length < total && (
+            <TablePagination
+              className={styles.pagination}
+              component="div"
+              count={total}
+              page={page}
+              rowsPerPage={FILES_PAGE_LIMIT}
+              rowsPerPageOptions={[]}
+              onPageChange={handlePageChange}
+            />
+          )}
+        </div>
+      </div>
+    )
+  }
   const page = skip / FILES_PAGE_LIMIT
 
   const breadcrumbs = selectedDirectory.value
@@ -147,7 +233,6 @@ const FileBrowserContentPanel: React.FC<FileBrowserContentPanelProps> = (props) 
             key={file}
             color="#5d646c"
             style={{ fontSize: '0.9rem' }}
-            href="#"
             onClick={() => handleClick(file)}
           >
             {file}
@@ -157,7 +242,6 @@ const FileBrowserContentPanel: React.FC<FileBrowserContentPanelProps> = (props) 
     })
 
   const files = fileState.files.value.map((file) => {
-    const prefabType = PrefabFileType[file.type]
     const isFolder = file.type === 'folder'
     const fullName = isFolder ? file.name : file.name + '.' + file.type
 
@@ -166,8 +250,7 @@ const FileBrowserContentPanel: React.FC<FileBrowserContentPanelProps> = (props) 
       path: isFolder ? file.key.split(file.name)[0] : file.key.split(fullName)[0],
       fullName,
       isFolder,
-      prefabType,
-      Icon: prefabIcons[prefabType]
+      Icon: FileIconType[file.type]
     }
   })
 
@@ -301,7 +384,7 @@ const FileBrowserContentPanel: React.FC<FileBrowserContentPanelProps> = (props) 
     if (isLoading.value) return
     isLoading.set(true)
     openConfirm.set(false)
-    await FileBrowserService.deleteContent(contentToDeletePath, contentToDeleteType)
+    await FileBrowserService.deleteContent(contentToDeletePath.value, contentToDeleteType.value)
     props.onSelectionChanged({ resourceUrl: '', name: '', contentType: '' })
     await onRefreshDirectory()
   }
@@ -323,8 +406,7 @@ const FileBrowserContentPanel: React.FC<FileBrowserContentPanelProps> = (props) 
     await onRefreshDirectory()
   }
 
-  const currentContent = null! as { item: FileDataType; isCopy: boolean }
-  const currentContentRef = useRef(currentContent)
+  const currentContentRef = useRef(null! as { item: FileDataType; isCopy: boolean })
 
   const headGrid = {
     display: 'flex',
@@ -349,8 +431,34 @@ const FileBrowserContentPanel: React.FC<FileBrowserContentPanelProps> = (props) 
     selectedDirectory.set(newPath)
   }
 
+  const handleDownloadProject = async () => {
+    const url = selectedDirectory.value
+    const data = await API.instance.client
+      .service('archiver')
+      .get(url)
+      .catch((err: Error) => {
+        NotificationService.dispatchNotify(err.message, { variant: 'warning' })
+        return null
+      })
+    if (!data) return
+    const blob = await (await fetch(`${config.client.fileServer}/${data}`)).blob()
+
+    let fileName = 'download' // default name
+    if (selectedDirectory.value[selectedDirectory.value.length - 1] === '/') {
+      fileName = selectedDirectory.value.split('/').at(-2) as string
+    } else {
+      fileName = selectedDirectory.value.split('/').at(-1) as string
+    }
+
+    saveAs(blob, fileName + '.zip')
+  }
+
+  const showDownloadButton =
+    selectedDirectory.value.slice(1).startsWith('projects/') &&
+    !['projects', 'projects/'].includes(selectedDirectory.value.slice(1))
+
   return (
-    <div className={styles.fileBrowserRoot}>
+    <div id="file-browser-panel" className={styles.fileBrowserRoot}>
       <div style={headGrid}>
         <ToolButton
           tooltip={t('editor:layout.filebrowser.back')}
@@ -366,12 +474,22 @@ const FileBrowserContentPanel: React.FC<FileBrowserContentPanelProps> = (props) 
         >
           {breadcrumbs}
         </Breadcrumbs>
-        <ToolButton
-          tooltip={t('editor:layout.filebrowser.refresh')}
-          icon={AutorenewIcon}
-          onClick={onRefreshDirectory}
-          id="refreshDir"
-        />
+        <span>
+          <ToolButton
+            tooltip={t('editor:layout.filebrowser.refresh')}
+            icon={AutorenewIcon}
+            onClick={onRefreshDirectory}
+            id="refreshDir"
+          />
+          {showDownloadButton && (
+            <ToolButton
+              tooltip={t('admin:components.project.downloadProject')}
+              onClick={handleDownloadProject}
+              icon={DownloadIcon}
+              id="downloadProject"
+            />
+          )}
+        </span>
       </div>
 
       {retrieving && (
@@ -382,43 +500,15 @@ const FileBrowserContentPanel: React.FC<FileBrowserContentPanelProps> = (props) 
         />
       )}
 
-      <div onContextMenu={handleContextMenu} id="file-browser-panel" className={styles.panelContainer}>
-        <div className={styles.contentContainer}>
-          {unique(files, (file) => file.key).map((file, i) => (
-            <FileBrowserItem
-              key={file.key}
-              contextMenuId={i.toString()}
-              item={file}
-              disableDnD={props.disableDnD}
-              onClick={onSelect}
-              moveContent={moveContent}
-              deleteContent={handleConfirmDelete}
-              currentContent={currentContentRef}
-              setOpenPropertiesModal={openProperties.set}
-              setFileProperties={fileProperties.set}
-              setOpenCompress={openCompress.set}
-              setOpenConvert={openConvert.set}
-              dropItemsOnPanel={dropItemsOnPanel}
-            />
-          ))}
-
-          {total > 0 && fileState.files.value.length < total && (
-            <TablePagination
-              className={styles.pagination}
-              component="div"
-              count={total}
-              page={page}
-              rowsPerPage={FILES_PAGE_LIMIT}
-              rowsPerPageOptions={[]}
-              onPageChange={handlePageChange}
-            />
-          )}
-        </div>
-      </div>
+      <DndWrapper id="file-browser-panel">
+        <DropArea />
+      </DndWrapper>
 
       <ContextMenu open={open} anchorEl={anchorEl.value} anchorPosition={anchorPosition.value} onClose={handleClose}>
         <MenuItem onClick={createNewFolder}>{t('editor:layout.filebrowser.addNewFolder')}</MenuItem>
-        <MenuItem onClick={pasteContent}>{t('editor:layout.filebrowser.pasteAsset')}</MenuItem>
+        <MenuItem disabled={!currentContentRef.current} onClick={pasteContent}>
+          {t('editor:layout.filebrowser.pasteAsset')}
+        </MenuItem>
       </ContextMenu>
 
       {openConvert.value && fileProperties.value && (
@@ -434,7 +524,6 @@ const FileBrowserContentPanel: React.FC<FileBrowserContentPanelProps> = (props) 
         <CompressionPanel
           openCompress={openCompress}
           fileProperties={fileProperties as any}
-          compressProperties={compressProperties}
           onRefreshDirectory={onRefreshDirectory}
         />
       )}

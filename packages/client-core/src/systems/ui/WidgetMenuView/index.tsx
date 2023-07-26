@@ -1,3 +1,28 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import React from 'react'
 
 // import { VrIcon } from '../../../common/components/Icons/VrIcon'
@@ -5,9 +30,8 @@ import { Channel } from '@etherealengine/common/src/interfaces/Channel'
 import { respawnAvatar } from '@etherealengine/engine/src/avatar/functions/respawnAvatar'
 import { Engine } from '@etherealengine/engine/src/ecs/classes/Engine'
 import { createXRUI } from '@etherealengine/engine/src/xrui/functions/createXRUI'
-import { WidgetAppActions, WidgetAppState } from '@etherealengine/engine/src/xrui/WidgetAppService'
-import { createState, useHookstate } from '@etherealengine/hyperflux'
-import { dispatchAction, getMutableState } from '@etherealengine/hyperflux'
+import { RegisteredWidgets, WidgetAppActions, WidgetAppState } from '@etherealengine/engine/src/xrui/WidgetAppService'
+import { createState, dispatchAction, getMutableState, useHookstate } from '@etherealengine/hyperflux'
 import Icon from '@etherealengine/ui/src/primitives/mui/Icon'
 
 import { setTrackingSpace } from '../../../../../engine/src/xr/XRScaleAdjustmentFunctions'
@@ -82,9 +106,9 @@ const WidgetButtons = () => {
 
   // const toggleVRSession = () => {
   //   if (engineState.xrSessionStarted.value) {
-  //     dispatchAction(XRAction.endSession({}))
+  //     endXRSession()
   //   } else {
-  //     dispatchAction(XRAction.requestSession({}))
+  //     requestXRSession()
   //   }
   // }
 
@@ -99,7 +123,7 @@ const WidgetButtons = () => {
   const widgets = Object.entries(widgetMutableState.widgets.value).map(([id, widgetMutableState]) => ({
     id,
     ...widgetMutableState,
-    ...Engine.instance.widgets.get(id)!
+    ...RegisteredWidgets.get(id)!
   }))
 
   const toggleWidget = (toggledWidget) => () => {

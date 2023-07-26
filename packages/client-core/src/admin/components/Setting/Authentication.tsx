@@ -1,3 +1,28 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { Icon } from '@iconify/react'
 import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -35,12 +60,12 @@ const Account = () => {
   const state = useHookstate(initialAuthState)
   const holdAuth = useHookstate(initialAuthState)
   const keySecret = useHookstate({
-    discord: authSetting?.oauth.discord,
-    github: authSetting?.oauth.github,
-    google: authSetting?.oauth.google,
-    twitter: authSetting?.oauth.twitter,
-    linkedin: authSetting?.oauth.linkedin,
-    facebook: authSetting?.oauth.facebook
+    discord: authSetting?.oauth?.discord,
+    github: authSetting?.oauth?.github,
+    google: authSetting?.oauth?.google,
+    twitter: authSetting?.oauth?.twitter,
+    linkedin: authSetting?.oauth?.linkedin,
+    facebook: authSetting?.oauth?.facebook
   })
   const showPassword = useHookstate({
     discord: {
@@ -52,7 +77,6 @@ const Account = () => {
       secret: false
     },
     github: {
-      appid: false,
       key: false,
       secret: false
     },
@@ -102,12 +126,12 @@ const Account = () => {
 
       let tempKeySecret = JSON.parse(
         JSON.stringify({
-          discord: authSetting?.oauth.discord,
-          github: authSetting?.oauth.github,
-          google: authSetting?.oauth.google,
-          twitter: authSetting?.oauth.twitter,
-          linkedin: authSetting?.oauth.linkedin,
-          facebook: authSetting?.oauth.facebook
+          discord: authSetting?.oauth?.discord,
+          github: authSetting?.oauth?.github,
+          google: authSetting?.oauth?.google,
+          twitter: authSetting?.oauth?.twitter,
+          linkedin: authSetting?.oauth?.linkedin,
+          facebook: authSetting?.oauth?.facebook
         })
       )
       keySecret.set(tempKeySecret)
@@ -123,10 +147,10 @@ const Account = () => {
     const oauth = { ...authSetting.oauth, ...keySecret.value }
 
     for (let key of Object.keys(oauth)) {
-      oauth[key] = JSON.stringify(oauth[key])
+      oauth[key] = JSON.parse(JSON.stringify(oauth[key]))
     }
 
-    AuthSettingsService.patchAuthSetting({ authStrategies: JSON.stringify(auth), oauth: JSON.stringify(oauth) }, id)
+    AuthSettingsService.patchAuthSetting({ authStrategies: auth, oauth: oauth }, id)
     NotificationService.dispatchNotify(t('admin:components.setting.authSettingsRefreshNotification'), {
       variant: 'warning'
     })
@@ -142,26 +166,16 @@ const Account = () => {
 
     let tempKeySecret = JSON.parse(
       JSON.stringify({
-        discord: authSetting?.oauth.discord,
-        github: authSetting?.oauth.github,
-        google: authSetting?.oauth.google,
-        twitter: authSetting?.oauth.twitter,
-        linkedin: authSetting?.oauth.linkedin,
-        facebook: authSetting?.oauth.facebook
+        discord: authSetting?.oauth?.discord,
+        github: authSetting?.oauth?.github,
+        google: authSetting?.oauth?.google,
+        twitter: authSetting?.oauth?.twitter,
+        linkedin: authSetting?.oauth?.linkedin,
+        facebook: authSetting?.oauth?.facebook
       })
     )
     keySecret.set(tempKeySecret)
     state.set(temp)
-  }
-
-  const handleOnChangeAppId = (event, type) => {
-    keySecret.set({
-      ...JSON.parse(JSON.stringify(keySecret.value)),
-      [type]: {
-        ...JSON.parse(JSON.stringify(keySecret[type].value)),
-        appid: event.target.value
-      }
-    })
   }
 
   const handleOnChangeKey = (event, type) => {
@@ -387,25 +401,6 @@ const Account = () => {
           {holdAuth?.github?.value && (
             <>
               <Typography className={styles.settingsSubHeading}>{t('admin:components.setting.github')}</Typography>
-
-              <InputText
-                name="appid"
-                label={t('admin:components.setting.appId')}
-                value={keySecret?.value?.github?.appid || ''}
-                type={showPassword.value.github.appid ? 'text' : 'password'}
-                endAdornment={
-                  <IconButton
-                    onClick={() => handleShowPassword('github-appid')}
-                    icon={
-                      <Icon
-                        icon={showPassword.value.github.appid ? 'ic:baseline-visibility' : 'ic:baseline-visibility-off'}
-                        color="orange"
-                      />
-                    }
-                  />
-                }
-                onChange={(e) => handleOnChangeAppId(e, OAUTH_TYPES.GITHUB)}
-              />
 
               <InputText
                 name="key"

@@ -1,5 +1,30 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { strictEqual } from 'assert'
-import { Group, Matrix4, Quaternion, Vector3 } from 'three'
+import { Quaternion, Vector3 } from 'three'
 
 import { NetworkId } from '@etherealengine/common/src/interfaces/NetworkId'
 import { PeerID } from '@etherealengine/common/src/interfaces/PeerID'
@@ -8,7 +33,6 @@ import { getMutableState, getState } from '@etherealengine/hyperflux'
 
 import { createMockNetwork } from '../../../tests/util/createMockNetwork'
 import { roundNumberToPlaces } from '../../../tests/util/MathTestUtils'
-import { proxifyQuaternion, proxifyVector3 } from '../../common/proxies/createThreejsProxy'
 import { destroyEngine, Engine } from '../../ecs/classes/Engine'
 import { EngineState } from '../../ecs/classes/EngineState'
 import { Entity } from '../../ecs/classes/Entity'
@@ -21,7 +45,6 @@ import {
   readRotation,
   TransformSerialization,
   writePosition,
-  writeRotation,
   writeTransform
 } from '../../transform/TransformSerialization'
 import { Network } from '../classes/Network'
@@ -38,15 +61,7 @@ import {
   writeVector3
   // writeXRHands
 } from './DataWriter'
-import {
-  createViewCursor,
-  readFloat32,
-  readFloat64,
-  readUint8,
-  readUint16,
-  readUint32,
-  sliceViewCursor
-} from './ViewCursor'
+import { createViewCursor, readFloat64, readUint32, readUint8, sliceViewCursor } from './ViewCursor'
 
 describe('DataWriter', () => {
   beforeEach(() => {
@@ -355,7 +370,7 @@ describe('DataWriter', () => {
     const networkId = 999 as NetworkId
     const userId = '0' as UserId
     const peerID = 'peer id' as PeerID
-    const userIndex = 0
+    const ownerIndex = 0
 
     // construct values for a valid quaternion
     const [a, b, c] = [0.167, 0.167, 0.167]
@@ -379,13 +394,13 @@ describe('DataWriter', () => {
 
     NetworkObjectComponent.networkId[entity] = networkId
 
-    writeEntity(writeView, networkId, entity, Object.values(getState(NetworkState).networkSchema))
+    writeEntity(writeView, networkId, ownerIndex, entity, Object.values(getState(NetworkState).networkSchema))
 
     const readView = createViewCursor(writeView.buffer)
 
     strictEqual(
       writeView.cursor,
-      1 * Uint32Array.BYTES_PER_ELEMENT +
+      2 * Uint32Array.BYTES_PER_ELEMENT +
         4 * Uint8Array.BYTES_PER_ELEMENT +
         3 * Float64Array.BYTES_PER_ELEMENT +
         4 * Float64Array.BYTES_PER_ELEMENT
@@ -393,6 +408,9 @@ describe('DataWriter', () => {
 
     // read networkId
     strictEqual(readUint32(readView), networkId)
+
+    // read owner index
+    strictEqual(readUint32(readView), ownerIndex)
 
     // read writeEntity changeMask (only reading TransformComponent)
     strictEqual(readUint8(readView), 0b01)
@@ -420,6 +438,8 @@ describe('DataWriter', () => {
 
   it('should writeEntities', () => {
     const writeView = createViewCursor()
+    const peerID = 'peerID' as PeerID
+    Engine.instance.peerID = peerID
 
     const n = 5
     const entities: Entity[] = Array(n)
@@ -433,9 +453,11 @@ describe('DataWriter', () => {
     const [posX, posY, posZ] = [1.5, 2.5, 3.5]
     const [rotX, rotY, rotZ, rotW] = [a, b, c, d]
 
+    const network = Engine.instance.worldNetwork as Network
+
     entities.forEach((entity) => {
       const networkId = entity as unknown as NetworkId
-      const userId = entity as unknown as UserId & PeerID
+      const userId = ('userId-' + entity) as unknown as UserId & PeerID
       const userIndex = entity
       NetworkObjectComponent.networkId[entity] = networkId
 
@@ -451,15 +473,18 @@ describe('DataWriter', () => {
         authorityPeerID: userId,
         ownerId: userId
       })
+
+      network.userIndexToUserID.set(userIndex, userId)
+      network.userIDToUserIndex.set(userId, userIndex)
     })
 
-    writeEntities(writeView, entities)
+    writeEntities(writeView, network, entities)
     const packet = sliceViewCursor(writeView)
 
     const expectedBytes =
       1 * Uint32Array.BYTES_PER_ELEMENT +
       n *
-        (1 * Uint32Array.BYTES_PER_ELEMENT +
+        (2 * Uint32Array.BYTES_PER_ELEMENT +
           4 * Uint8Array.BYTES_PER_ELEMENT +
           3 * Float64Array.BYTES_PER_ELEMENT +
           4 * Float64Array.BYTES_PER_ELEMENT)
@@ -474,6 +499,9 @@ describe('DataWriter', () => {
 
     for (let i = 0; i < count; i++) {
       // read networkId
+      strictEqual(readUint32(readView), entities[i])
+
+      // read owner index
       strictEqual(readUint32(readView), entities[i])
 
       // read writeEntity changeMask (only reading TransformComponent)
@@ -503,6 +531,7 @@ describe('DataWriter', () => {
 
   it('should createDataWriter', () => {
     const peerID = 'peerID' as PeerID
+    Engine.instance.peerID = peerID
 
     const write = createDataWriter()
 
@@ -518,9 +547,11 @@ describe('DataWriter', () => {
     const [posX, posY, posZ] = [1.5, 2.5, 3.5]
     const [rotX, rotY, rotZ, rotW] = [a, b, c, d]
 
+    const network = Engine.instance.worldNetwork as Network
+
     entities.forEach((entity) => {
       const networkId = entity as unknown as NetworkId
-      const userId = entity as unknown as UserId & PeerID
+      const userId = ('userId-' + entity) as unknown as UserId & PeerID
       const userIndex = entity
       NetworkObjectComponent.networkId[entity] = networkId
 
@@ -536,16 +567,18 @@ describe('DataWriter', () => {
         authorityPeerID: userId,
         ownerId: userId
       })
+
+      network.userIndexToUserID.set(userIndex, userId)
+      network.userIDToUserIndex.set(userId, userIndex)
     })
 
-    const network = Engine.instance.worldNetwork as Network
-    const packet = write(network, Engine.instance.userId, peerID, entities)
+    const packet = write(network, Engine.instance.userId, Engine.instance.peerID, entities)
 
     const expectedBytes =
       3 * Uint32Array.BYTES_PER_ELEMENT +
       1 * Float64Array.BYTES_PER_ELEMENT +
       n *
-        (1 * Uint32Array.BYTES_PER_ELEMENT +
+        (2 * Uint32Array.BYTES_PER_ELEMENT +
           4 * Uint8Array.BYTES_PER_ELEMENT +
           3 * Float64Array.BYTES_PER_ELEMENT +
           4 * Float64Array.BYTES_PER_ELEMENT)
@@ -563,6 +596,9 @@ describe('DataWriter', () => {
 
     for (let i = 0; i < count; i++) {
       // read networkId
+      strictEqual(readUint32(readView), entities[i])
+
+      // read owner index
       strictEqual(readUint32(readView), entities[i])
 
       // read writeEntity changeMask (only reading TransformComponent)

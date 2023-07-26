@@ -1,4 +1,28 @@
-import { useEffect } from 'react'
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { Box3, Vector3 } from 'three'
 
 import { defineActionQueue, getState } from '@etherealengine/hyperflux'
@@ -19,15 +43,15 @@ import {
   removeComponent
 } from '../../ecs/functions/ComponentFunctions'
 import { defineSystem } from '../../ecs/functions/SystemFunctions'
+import { NetworkObjectComponent } from '../../networking/components/NetworkObjectComponent'
 import { Physics } from '../../physics/classes/Physics'
 import { RigidBodyComponent } from '../../physics/components/RigidBodyComponent'
 import { CollisionGroups } from '../../physics/enums/CollisionGroups'
 import { getInteractionGroups } from '../../physics/functions/getInteractionGroups'
+import { PhysicsState } from '../../physics/state/PhysicsState'
 import { RaycastHit, SceneQueryType } from '../../physics/types/PhysicsTypes'
 import { MountPoint, MountPointComponent } from '../../scene/components/MountPointComponent'
 import { SittingComponent } from '../../scene/components/SittingComponent'
-import { VisibleComponent } from '../../scene/components/VisibleComponent'
-import { ScenePrefabs } from '../../scene/systems/SceneObjectUpdateSystem'
 import { TransformComponent } from '../../transform/components/TransformComponent'
 import { BoundingBoxComponent } from '../components/BoundingBoxComponents'
 import { createInteractUI } from '../functions/interactUI'
@@ -63,7 +87,7 @@ const execute = () => {
   for (const action of mountPointActionQueue()) {
     if (action.$from !== Engine.instance.userId) continue
     if (!action.targetEntity || !hasComponent(action.targetEntity!, MountPointComponent)) continue
-    const avatarEntity = Engine.instance.getUserAvatarEntity(action.$from)
+    const avatarEntity = NetworkObjectComponent.getUserAvatarEntity(action.$from)
 
     const mountPoint = getComponent(action.targetEntity!, MountPointComponent)
     if (mountPoint.type === MountPoint.seat) {
@@ -120,7 +144,8 @@ const execute = () => {
         maxDistance: 2,
         groups: interactionGroups
       }
-      const hits = Physics.castRay(Engine.instance.physicsWorld, raycastComponentData)
+      const physicsWorld = getState(PhysicsState).physicsWorld
+      const hits = Physics.castRay(physicsWorld, raycastComponentData)
 
       if (hits.length > 0) {
         const raycastHit = hits[0] as RaycastHit
@@ -142,23 +167,7 @@ const execute = () => {
   }
 }
 
-const reactor = () => {
-  useEffect(() => {
-    Engine.instance.scenePrefabRegistry.set(ScenePrefabs.chair, [
-      { name: TransformComponent.jsonID },
-      { name: VisibleComponent.jsonID },
-      { name: MountPointComponent.jsonID }
-    ])
-
-    return () => {
-      Engine.instance.scenePrefabRegistry.delete(ScenePrefabs.chair)
-    }
-  }, [])
-  return null
-}
-
 export const MountPointSystem = defineSystem({
   uuid: 'ee.engine.MountPointSystem',
-  execute,
-  reactor
+  execute
 })

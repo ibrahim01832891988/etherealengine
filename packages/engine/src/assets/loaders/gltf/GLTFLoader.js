@@ -1,3 +1,30 @@
+
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
+
 import {
 	AnimationClip,
 	Bone,
@@ -60,7 +87,7 @@ import {
 	Vector2,
 	Vector3,
 	VectorKeyframeTrack,
-	sRGBEncoding
+	SRGBColorSpace
 } from 'three';
 
 class GLTFLoader extends Loader {
@@ -662,7 +689,7 @@ class GLTFMaterialsUnlitExtension {
 
 			if ( metallicRoughness.baseColorTexture !== undefined ) {
 
-				pending.push( parser.assignTexture( materialParams, 'map', metallicRoughness.baseColorTexture, sRGBEncoding ) );
+				pending.push( parser.assignTexture( materialParams, 'map', metallicRoughness.baseColorTexture, SRGBColorSpace ) );
 
 			}
 
@@ -943,7 +970,7 @@ class GLTFMaterialsSheenExtension {
 
 		if ( extension.sheenColorTexture !== undefined ) {
 
-			pending.push( parser.assignTexture( materialParams, 'sheenColorMap', extension.sheenColorTexture, sRGBEncoding ) );
+			pending.push( parser.assignTexture( materialParams, 'sheenColorMap', extension.sheenColorTexture, SRGBColorSpace ) );
 
 		}
 
@@ -1176,7 +1203,7 @@ class GLTFMaterialsSpecularExtension {
 
 		if ( extension.specularColorTexture !== undefined ) {
 
-			pending.push( parser.assignTexture( materialParams, 'specularColorMap', extension.specularColorTexture, sRGBEncoding ) );
+			pending.push( parser.assignTexture( materialParams, 'specularColorMap', extension.specularColorTexture, SRGBColorSpace ) );
 
 		}
 
@@ -2029,7 +2056,7 @@ const ATTRIBUTES = {
 	NORMAL: 'normal',
 	TANGENT: 'tangent',
 	TEXCOORD_0: 'uv',
-	TEXCOORD_1: 'uv2',
+	TEXCOORD_1: 'uv1',
 	COLOR_0: 'color',
 	WEIGHTS_0: 'skinWeight',
 	JOINTS_0: 'skinIndex',
@@ -3112,7 +3139,7 @@ class GLTFParser {
 	 * @param {Object} mapDef
 	 * @return {Promise<Texture>}
 	 */
-	assignTexture( materialParams, mapName, mapDef, encoding ) {
+	assignTexture( materialParams, mapName, mapDef, colorSpace ) {
 
 		const parser = this;
 
@@ -3142,9 +3169,9 @@ class GLTFParser {
 
 			}
 
-			if ( encoding !== undefined ) {
+			if ( colorSpace !== undefined ) {
 
-				texture.encoding = encoding;
+				texture.colorSpace = colorSpace;
 
 			}
 
@@ -3312,7 +3339,7 @@ class GLTFParser {
 
 			if ( metallicRoughness.baseColorTexture !== undefined ) {
 
-				pending.push( parser.assignTexture( materialParams, 'map', metallicRoughness.baseColorTexture, sRGBEncoding ) );
+				pending.push( parser.assignTexture( materialParams, 'map', metallicRoughness.baseColorTexture, SRGBColorSpace ) );
 
 			}
 
@@ -3403,7 +3430,7 @@ class GLTFParser {
 
 		if ( materialDef.emissiveTexture !== undefined && materialType !== MeshBasicMaterial ) {
 
-			pending.push( parser.assignTexture( materialParams, 'emissiveMap', materialDef.emissiveTexture, sRGBEncoding ) );
+			pending.push( parser.assignTexture( materialParams, 'emissiveMap', materialDef.emissiveTexture, SRGBColorSpace ) );
 
 		}
 

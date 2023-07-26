@@ -1,8 +1,33 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { DockLayout, DockMode, LayoutData, TabData } from 'rc-dock'
 
 import 'rc-dock/dist/rc-dock.css'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -14,7 +39,7 @@ import { Engine } from '@etherealengine/engine/src/ecs/classes/Engine'
 import { EngineState } from '@etherealengine/engine/src/ecs/classes/EngineState'
 import { SceneState } from '@etherealengine/engine/src/ecs/classes/Scene'
 import { gltfToSceneJson, sceneToGLTF } from '@etherealengine/engine/src/scene/functions/GLTFConversion'
-import { dispatchAction, getMutableState, getState, useHookstate } from '@etherealengine/hyperflux'
+import { getMutableState, getState, useHookstate } from '@etherealengine/hyperflux'
 
 import Inventory2Icon from '@mui/icons-material/Inventory2'
 import Dialog from '@mui/material/Dialog'
@@ -26,7 +51,7 @@ import { takeScreenshot } from '../functions/takeScreenshot'
 import { uploadBPCEMBakeToServer } from '../functions/uploadEnvMapBake'
 import { cmdOrCtrlString } from '../functions/utils'
 import { EditorErrorState } from '../services/EditorErrorServices'
-import { EditorAction, EditorState } from '../services/EditorServices'
+import { EditorState } from '../services/EditorServices'
 import AssetDropZone from './assets/AssetDropZone'
 import ProjectBrowserPanel from './assets/ProjectBrowserPanel'
 import ScenesPanel from './assets/ScenesPanel'
@@ -131,7 +156,6 @@ const EditorContainer = () => {
   const editorState = useHookstate(getMutableState(EditorState))
   const projectName = editorState.projectName
   const sceneName = editorState.sceneName
-  const modified = editorState.sceneModified
   const sceneLoaded = useHookstate(getMutableState(EngineState)).sceneLoaded
   const sceneLoading = useHookstate(getMutableState(EngineState)).sceneLoading
 
@@ -157,7 +181,6 @@ const EditorContainer = () => {
         thumbnailUrl: null!,
         name: ''
       })
-      dispatchAction(EditorAction.sceneModified({ modified: true }))
     } catch (error) {
       logger.error(error)
       setDialogComponent(
@@ -169,6 +192,21 @@ const EditorContainer = () => {
       )
     }
   }
+
+  useEffect(() => {
+    if (!editorState.sceneModified.value) return
+    const onBeforeUnload = (e) => {
+      alert('You have unsaved changes. Please save before leaving.')
+      e.preventDefault()
+      e.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', onBeforeUnload)
+
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+    }
+  }, [editorState.sceneModified])
 
   useEffect(() => {
     if (sceneLoaded.value) {
@@ -192,10 +230,16 @@ const EditorContainer = () => {
   const loadScene = async (sceneName: string) => {
     setDialogComponent(<ProgressDialog message={t('editor:loading')} />)
     try {
-      if (!projectName.value) return
+      if (!projectName.value) {
+        setDialogComponent(null)
+        return
+      }
       const project = await getScene(projectName.value, sceneName, false)
 
-      if (!project.scene) return
+      if (!project.scene) {
+        setDialogComponent(null)
+        return
+      }
       loadProjectScene(project)
     } catch (error) {
       logger.error(error)
@@ -255,7 +299,11 @@ const EditorContainer = () => {
   }
 
   const onCloseProject = () => {
-    route('/editor')
+    editorState.sceneModified.set(false)
+    editorState.projectName.set(null)
+    editorState.sceneName.set(null)
+    getMutableState(SceneState).sceneData.set(null)
+    route('/studio')
   }
 
   const onSaveAs = async () => {
@@ -269,7 +317,7 @@ const EditorContainer = () => {
 
     const abortController = new AbortController()
     try {
-      if (sceneName.value || modified.value) {
+      if (sceneName.value || editorState.sceneModified.value) {
         const blob = await takeScreenshot(512, 320)
         const file = new File([blob!], editorState.sceneName + '.thumbnail.png')
         const result: { name: string } = (await new Promise((resolve) => {
@@ -285,7 +333,7 @@ const EditorContainer = () => {
         if (result && projectName.value) {
           await uploadBPCEMBakeToServer(getState(SceneState).sceneEntity)
           await saveScene(projectName.value, result.name, file, abortController.signal)
-          dispatchAction(EditorAction.sceneModified({ modified: false }))
+          editorState.sceneModified.set(false)
         }
       }
       setDialogComponent(null)
@@ -302,7 +350,7 @@ const EditorContainer = () => {
     const el = document.createElement('input')
     el.type = 'file'
     el.multiple = true
-    el.accept = '.gltf,.glb,.fbx,.vrm,.tga,.png,.jpg,.jpeg,.mp3,.aac,.ogg,.m4a,.zip,.mp4,.mkv,.m3u8,.usdz'
+    el.accept = '.gltf,.glb,.fbx,.vrm,.tga,.png,.jpg,.jpeg,.mp3,.aac,.ogg,.m4a,.zip,.mp4,.mkv,.avi,.m3u8,.usdz'
     el.style.display = 'none'
     el.onchange = async () => {
       const pName = projectName.value
@@ -378,7 +426,7 @@ const EditorContainer = () => {
     }
 
     if (!sceneName.value) {
-      if (modified.value) {
+      if (editorState.sceneModified.value) {
         onSaveAs()
       }
       return
@@ -422,7 +470,7 @@ const EditorContainer = () => {
         }
       }
 
-      dispatchAction(EditorAction.sceneModified({ modified: false }))
+      editorState.sceneModified.set(false)
 
       setDialogComponent(null)
     } catch (error) {
@@ -453,13 +501,6 @@ const EditorContainer = () => {
 
   useEffect(() => {
     if (!dockPanelRef.current) return
-
-    dockPanelRef.current.updateTab('viewPanel', {
-      id: 'viewPanel',
-      title: 'Viewport',
-      content: viewPortPanelContent(!sceneLoaded.value)
-    })
-
     const activePanel = sceneLoaded.value ? 'filesPanel' : 'scenePanel'
     dockPanelRef.current.updateTab(activePanel, dockPanelRef.current.find(activePanel) as TabData, true)
   }, [sceneLoaded])
@@ -504,16 +545,17 @@ const EditorContainer = () => {
     ]
   }
 
-  const viewPortPanelContent = useCallback((shouldDisplay) => {
-    return shouldDisplay ? (
+  const ViewPortPanelContent = () => {
+    const sceneLoaded = useHookstate(getMutableState(EngineState)).sceneLoaded.value
+    return sceneLoaded ? (
+      <div />
+    ) : (
       <div className={styles.bgImageBlock}>
         <img src="/static/etherealengine.png" alt="" />
         <h2>{t('editor:selectSceneMsg')}</h2>
       </div>
-    ) : (
-      <div />
     )
-  }, [])
+  }
 
   const toolbarMenu = generateToolbarMenu()
 
@@ -567,7 +609,7 @@ const EditorContainer = () => {
                 {
                   id: 'viewPanel',
                   title: 'Viewport',
-                  content: viewPortPanelContent(true)
+                  content: <ViewPortPanelContent />
                 }
               ],
               size: 1

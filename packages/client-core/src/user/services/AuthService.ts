@@ -1,33 +1,56 @@
+/*
+CPAL-1.0 License
+
+The contents of this file are subject to the Common Public Attribution License
+Version 1.0. (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+https://github.com/EtherealEngine/etherealengine/blob/dev/LICENSE.
+The License is based on the Mozilla Public License Version 1.1, but Sections 14
+and 15 have been added to cover use of software over a computer network and 
+provide for limited attribution for the Original Developer. In addition, 
+Exhibit A has been modified to be consistent with Exhibit B.
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+specific language governing rights and limitations under the License.
+
+The Original Code is Ethereal Engine.
+
+The Original Developer is the Initial Developer. The Initial Developer of the
+Original Code is the Ethereal Engine team.
+
+All portions of the code written by the Ethereal Engine team are Copyright © 2021-2023 
+Ethereal Engine. All Rights Reserved.
+*/
+
 import { Paginated } from '@feathersjs/feathers'
 import i18n from 'i18next'
 import { useEffect } from 'react'
 import { v1 } from 'uuid'
 
-import { validateEmail, validatePhoneNumber } from '@etherealengine/common/src/config'
-import config from '@etherealengine/common/src/config'
-import { AuthStrategies } from '@etherealengine/common/src/interfaces/AuthStrategies'
+import config, { validateEmail, validatePhoneNumber } from '@etherealengine/common/src/config'
 import { AuthUser, AuthUserSeed, resolveAuthUser } from '@etherealengine/common/src/interfaces/AuthUser'
 import { IdentityProvider } from '@etherealengine/common/src/interfaces/IdentityProvider'
 import {
-  resolveUser,
-  resolveWalletUser,
   UserInterface,
   UserSeed,
-  UserSetting
+  UserSetting,
+  resolveUser,
+  resolveWalletUser
 } from '@etherealengine/common/src/interfaces/User'
-import { UserApiKey } from '@etherealengine/common/src/interfaces/UserApiKey'
 import multiLogger from '@etherealengine/common/src/logger'
-import { matches, Validator } from '@etherealengine/engine/src/common/functions/MatchesUtils'
+import { Validator, matches } from '@etherealengine/engine/src/common/functions/MatchesUtils'
+import { AuthStrategiesType } from '@etherealengine/engine/src/schemas/setting/authentication-setting.schema'
 import {
   defineAction,
   defineState,
   dispatchAction,
   getMutableState,
   getState,
-  syncStateWithLocalStorage,
-  useState
+  syncStateWithLocalStorage
 } from '@etherealengine/hyperflux'
 
+import { UserApiKeyType, userApiKeyPath } from '@etherealengine/engine/src/schemas/user/user-api-key.schema'
 import { API } from '../../API'
 import { NotificationService } from '../../common/services/NotificationService'
 import { LocationState } from '../../social/services/LocationService'
@@ -127,7 +150,7 @@ export const AuthServiceReceptor = (action) => {
       return userPatched(action.params)
     })
     .when(AuthAction.updatedUserSettingsAction.matches, (action) => {
-      return s.user.merge({ user_setting: action.data })
+      return s.user.user_setting.merge(action.data)
     })
 }
 
@@ -235,7 +258,7 @@ export class AuthAction {
 
   static apiKeyUpdatedAction = defineAction({
     type: 'ee.client.Auth.USER_API_KEY_UPDATED' as const,
-    apiKey: matches.object as Validator<unknown, UserApiKey>
+    apiKey: matches.object as Validator<unknown, UserApiKeyType>
   })
 }
 
@@ -591,7 +614,7 @@ export const AuthService = {
     }
   },
 
-  async createMagicLink(emailPhone: string, authState: AuthStrategies, linkType?: 'email' | 'sms') {
+  async createMagicLink(emailPhone: string, authState: AuthStrategiesType, linkType?: 'email' | 'sms') {
     dispatchAction(AuthAction.actionProcessing({ processing: true }))
 
     let type = 'email'
@@ -742,7 +765,7 @@ export const AuthService = {
   },
 
   async updateApiKey() {
-    const apiKey = (await API.instance.client.service('user-api-key').patch(null, {})) as UserApiKey
+    const apiKey = (await API.instance.client.service(userApiKeyPath).patch(null, {})) as UserApiKeyType
     dispatchAction(AuthAction.apiKeyUpdatedAction({ apiKey }))
   },
 
