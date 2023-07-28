@@ -1,0 +1,11 @@
+{
+  "packages": [
+    "packages/*",
+    "packages/projects/projects/*"
+  ],
+  "version": "1.4.0",
+  "npmClient": "npm",
+  "useNx": true,
+  "loglevel": "verbose",
+  "hoist": true
+}

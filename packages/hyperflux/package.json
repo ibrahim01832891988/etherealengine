@@ -1,0 +1,30 @@
+{
+  "name": "@etherealengine/hyperflux",
+  "version": "1.4.0",
+  "main": "index.ts",
+  "description": "State Management for Ethereal Engine",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/etherealengine/etherealengine.git"
+  },
+  "author": "",
+  "license": "CPAL",
+  "bugs": {
+    "url": "https://github.com/etherealengine/etherealengine/issues"
+  },
+  "dependencies": {
+    "@hookstate/core": "4.0.0-rc21",
+    "react-reconciler": "^0.29.0"
+  },
+  "devDependencies": {
+    "@types/react-reconciler": "^0.28.2",
+    "cross-env": "^7.0.3",
+    "ts-matches": "5.3.0"
+  },
+  "scripts": {
+    "test": "cross-env TEST=true mocha --config .mocharc.js"
+  }
+}

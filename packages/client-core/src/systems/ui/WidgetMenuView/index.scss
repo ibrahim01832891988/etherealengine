@@ -1,0 +1,13 @@
+.container {
+  display: grid;
+  grid-gap: 10px;
+}
+
+.svgIcon {
+  width: 1.5em;
+  height: 1.5em;
+}
+
+.svgIcon path {
+  fill: var(--iconButtonColor) !important;
+}

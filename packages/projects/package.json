@@ -1,0 +1,21 @@
+{
+  "name": "@etherealengine/projects",
+  "version": "1.4.0",
+  "main": "index.ts",
+  "private": true,
+  "description": "",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/etherealengine/etherealengine.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "",
+  "license": "CPAL",
+  "bugs": {
+    "url": "https://github.com/etherealengine/etherealengine/issues"
+  },
+  "homepage": "https://github.com/etherealengine/etherealengine#readme"
+}
