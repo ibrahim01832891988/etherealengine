@@ -90,9 +90,9 @@ cli.main(async () => {
   }
 
   if (kubernetesEnabled)
-    await sequelize.query(
+   /** await sequelize.query(
       `UPDATE \`${redisSettingPath}\` SET address='${process.env.REDIS_ADDRESS}',password='${process.env.REDIS_PASSWORD}',port='${process.env.REDIS_PORT}';`
-    )
+    )**/
 
   process.exit(0)
 })
