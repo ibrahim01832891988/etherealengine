@@ -1,0 +1,50 @@
+name: branch-build
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev]
+jobs:
+  secrets-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.check-secrets.outputs.ok }}
+    steps:
+      - name: check for secrets needed to run workflows
+        id: check-secrets
+        run: |
+          if [ ${{ secrets.BRANCH_BUILD_ENABLED }} == 'true' ]; then
+            echo "ok=enabled" >> $GITHUB_OUTPUT
+          fi
+  compile-codebase:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+      - name: restore lerna
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            */*/node_modules
+            package-lock.json
+          key: ${{ runner.os }}-branch-build-${{ hashFiles('**/package.json') }}
+      - run: cp .env.local.default .env.local
+      - name: Config npm registry token
+        run: npm config set '//npm.pkg.github.com/:_authToken' "${NPM_TOKEN}"
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm install --production=false --loglevel notice --legacy-peer-deps
+      - run: npm run lint
+      - run: npm run dev-docker
+      - run: npm run dev-reinit
+      - run: npm run check-errors
+        timeout-minutes: 20
+      - run: npm run build-client
+      - run: npm run test
